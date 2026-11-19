@@ -8,6 +8,7 @@ import TermsPage from './pages/TermsPage';
 import NotFoundPage from './pages/NotFoundPage';
 import PagesHub from './pages/PagesHub';
 import CinematicLoader from './components/CinematicLoader';
+import MatrixBackground from './components/MatrixBackground';
 import SmoothCursor from './components/SmoothCursor';
 import SmoothScroll from './components/SmoothScroll';
 import { ScanLine, Settings, Shield, Github } from 'lucide-react';
@@ -94,6 +95,9 @@ export default function App() {
 
   return (
     <>
+      {/* Persistent Global Vanta.js NET Matrix Layer (Fixed at z-0, persists across all pages) */}
+      <MatrixBackground />
+
       {isCinematicLoading && (
         <CinematicLoader onComplete={() => setIsCinematicLoading(false)} />
       )}
@@ -102,19 +106,20 @@ export default function App() {
         {/* 120Hz iOS Fluid Cursor */}
         <SmoothCursor />
 
-        {view === 'splash' ? (
-          <SplashPage
-            onEnter={() => navigateTo('dashboard')}
-            onReplayCinematic={replayCinematic}
-          />
-        ) : (
-        <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-cyan-500/30 selection:text-cyan-200">
-          {/* Top Application Header */}
-          <AppHeader
-            activePage={page}
-            onNavigate={navigateTo}
-            onGoHome={goHome}
-          />
+        <div className="content-layer">
+          {view === 'splash' ? (
+            <SplashPage
+              onEnter={() => navigateTo('dashboard')}
+              onReplayCinematic={replayCinematic}
+            />
+          ) : (
+            <div className="min-h-screen bg-slate-950/60 text-slate-100 flex flex-col font-sans selection:bg-cyan-500/30 selection:text-cyan-200">
+              {/* Top Application Header */}
+              <AppHeader
+                activePage={page}
+                onNavigate={navigateTo}
+                onGoHome={goHome}
+              />
 
           {/* Main Page Routing */}
           <div className="flex-1 flex flex-col min-h-0">
@@ -220,7 +225,8 @@ export default function App() {
           </footer>
         </div>
       )}
-    </SmoothScroll>
-  </>
+        </div>
+      </SmoothScroll>
+    </>
   );
 }

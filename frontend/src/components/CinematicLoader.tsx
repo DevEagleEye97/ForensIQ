@@ -1,6 +1,4 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
-import * as THREE from 'three';
-import NET from 'vanta/dist/vanta.net.min';
 import { Terminal, Cpu, Database, Eye } from 'lucide-react';
 import './CinematicLoader.css';
 
@@ -25,11 +23,8 @@ export default function CinematicLoader({ onComplete, skippable = true }: Cinema
   const [revealedLetters, setRevealedLetters] = useState<number>(0);
   const [progress, setProgress] = useState<number>(0);
   const [statusText, setStatusText] = useState<string>(SYSTEM_STATUS_STEPS[0]);
-  const [vantaFailed, setVantaFailed] = useState<boolean>(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const vantaRef = useRef<HTMLDivElement>(null);
-  const vantaEffectRef = useRef<any>(null);
   const matrixCanvasRef = useRef<HTMLCanvasElement>(null);
 
   // Check user preference for reduced motion
@@ -48,47 +43,6 @@ export default function CinematicLoader({ onComplete, skippable = true }: Cinema
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onComplete, skippable]);
-
-  // Vanta.js initialization with Three.js (Green Matrix lines on Deep Midnight Blue-Black)
-  useEffect(() => {
-    if (prefersReducedMotion) {
-      onComplete();
-      return;
-    }
-
-    if (!vantaRef.current) return;
-
-    try {
-      vantaEffectRef.current = NET({
-        el: vantaRef.current,
-        THREE,
-        mouseControls: true,
-        touchControls: true,
-        gyroControls: false,
-        minHeight: 200.0,
-        minWidth: 200.0,
-        scale: 1.0,
-        scaleMobile: 1.0,
-        color: 0x00ff41,
-        backgroundColor: 0x020713,
-        points: 13.0,
-        maxDistance: 25.0,
-        spacing: 16.0,
-        showDots: false,
-      });
-    } catch (err) {
-      console.warn('[ForensIQ Cinematic] Vanta.js WebGL fallback to Canvas Matrix:', err);
-      setVantaFailed(true);
-    }
-
-    return () => {
-      if (vantaEffectRef.current && typeof vantaEffectRef.current.destroy === 'function') {
-        try {
-          vantaEffectRef.current.destroy();
-        } catch (_) {}
-      }
-    };
-  }, [prefersReducedMotion, onComplete]);
 
   // Dual-tone Canvas Matrix Rain (Matrix Green + Cyber Electric Blue mixture)
   useEffect(() => {
@@ -235,18 +189,13 @@ export default function CinematicLoader({ onComplete, skippable = true }: Cinema
       role="alert"
       aria-live="assertive"
       aria-label="ForensIQ forensic system initializing"
-      className="fixed inset-0 z-[9999] bg-[#020611] text-white overflow-hidden select-none font-mono"
+      className="fixed inset-0 z-[9999] bg-[#020611]/75 backdrop-blur-sm text-white overflow-hidden select-none font-mono"
     >
-      {/* LAYER 1: Full-Viewport Vanta.js NET / Matrix Rain Background */}
-      <div
-        ref={vantaRef}
-        className="absolute inset-0 z-0 transition-opacity duration-1000"
-        style={{ opacity: matrixOpacity }}
-      />
+      {/* LAYER 1: Matrix Rain Canvas Overlay (Global Vanta NET shines through underneath) */}
       <canvas
         ref={matrixCanvasRef}
         className="absolute inset-0 z-0 pointer-events-none transition-opacity duration-1000"
-        style={{ opacity: vantaFailed ? 0.85 : matrixOpacity * 0.55 }}
+        style={{ opacity: matrixOpacity * 0.75 }}
       />
 
       {/* BACKSIDE LINES: 3D Perspective Horizon & Tactical Coordinate Grid */}
@@ -344,6 +293,7 @@ export default function CinematicLoader({ onComplete, skippable = true }: Cinema
                     }`}
                     style={{
                       animationDelay: `${index * 160}ms`,
+                      filter: isRevealed ? 'none' : undefined,
                     }}
                   >
                     {letter}

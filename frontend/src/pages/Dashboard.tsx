@@ -352,7 +352,7 @@ export default function Dashboard() {
             { label: 'Avg Authenticity', value: systemStats.avgTrustScore, icon: Radio, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
             { label: 'Vault Cryptographic Records', value: systemStats.dbRecords, icon: Database, color: 'text-sky-400', bg: 'bg-sky-500/10' },
           ].map((s) => (
-            <div key={s.label} className="flex items-center gap-3 p-2 rounded-xl bg-slate-900/40 border border-slate-800/60">
+            <div key={s.label} className="glass-card flex items-center gap-3 p-3 rounded-xl shadow-sm">
               <div className={cn('p-2.5 rounded-lg flex-shrink-0', s.bg, s.color)}>
                 <s.icon className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
@@ -403,12 +403,12 @@ export default function Dashboard() {
             <div
               {...getRootProps()}
               className={cn(
-                'border-2 border-dashed rounded-2xl p-6 sm:p-8 text-center transition-all duration-200 relative overflow-hidden flex flex-col items-center justify-center min-h-[220px]',
+                'glass-card border-2 border-dashed rounded-2xl p-6 sm:p-8 text-center transition-all duration-200 relative overflow-hidden flex flex-col items-center justify-center min-h-[220px]',
                 isDragActive
                   ? 'border-indigo-400 bg-indigo-500/10 scale-[1.005]'
                   : analysisResult
-                  ? 'border-slate-800 bg-slate-900/30'
-                  : 'border-slate-800 hover:border-indigo-500/50 bg-slate-900/40 cursor-pointer'
+                  ? 'border-slate-800'
+                  : 'border-slate-800 hover:border-indigo-500/50 cursor-pointer'
               )}
             >
               <input {...getInputProps()} disabled={analyzing} />
@@ -569,7 +569,7 @@ export default function Dashboard() {
             {analysisResult && (
               <div className="space-y-4">
                 {/* 1. Evidence Fingerprint (SHA-256 Forensic Hashing & Chain-of-Custody) */}
-                <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg">
+                <div className="glass-card p-4 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg">
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 flex-shrink-0">
                       <Fingerprint className="w-5 h-5" />
@@ -620,12 +620,12 @@ export default function Dashboard() {
                 {analysisResult.simplified_report && (
                   <div
                     className={cn(
-                      'p-5 rounded-2xl border transition-all shadow-xl',
+                      'glass-card-verdict p-5 rounded-2xl border transition-all shadow-xl',
                       analysisResult.simplified_report.verdict === 'GREEN_FLAG'
-                        ? 'bg-emerald-950/30 border-emerald-500/40 shadow-emerald-950/20'
+                        ? 'bg-emerald-950/40 border-emerald-500/50 shadow-emerald-950/20'
                         : analysisResult.simplified_report.verdict === 'RED_FLAG'
-                        ? 'bg-rose-950/30 border-rose-500/40 shadow-rose-950/20'
-                        : 'bg-amber-950/30 border-amber-500/40 shadow-amber-950/20'
+                        ? 'bg-rose-950/40 border-rose-500/50 shadow-rose-950/20'
+                        : 'bg-amber-950/40 border-amber-500/50 shadow-amber-950/20'
                     )}
                   >
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
@@ -757,7 +757,7 @@ export default function Dashboard() {
 
             {/* ELA Visualizer & Image Inspection Canvas */}
             {analysisResult && (
-              <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-5 space-y-4">
+              <div className="glass-card border border-slate-800 rounded-2xl p-5 space-y-4">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
                     <Layers className="w-4 h-4 text-indigo-400" />
@@ -812,7 +812,7 @@ export default function Dashboard() {
             )}
 
             {/* 4 Analytical Checks Cards Grid */}
-            <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-5 space-y-4">
+            <div className="glass-card border border-slate-800 rounded-2xl p-5 space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <ScanLine className="w-4 h-4 text-indigo-400" />
@@ -898,7 +898,7 @@ export default function Dashboard() {
           <div className="space-y-6">
 
             {/* Overall Score Card */}
-            <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-5 space-y-4">
+            <div className="glass-card border border-slate-800 rounded-2xl p-5 space-y-4">
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-xs text-slate-500 font-mono uppercase tracking-wider">Tamper Probability Index</p>
@@ -953,7 +953,7 @@ export default function Dashboard() {
             </div>
 
             {/* Anomaly Breakdown Chart */}
-            <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-5 space-y-4">
+            <div className="glass-card border border-slate-800 rounded-2xl p-5 space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-slate-200">Anomaly Signal Vectors</h3>
                 <span className="text-[10px] font-mono text-indigo-400">Normalized (0-100)</span>
@@ -980,7 +980,7 @@ export default function Dashboard() {
             </div>
 
             {/* Cryptographic Ledger Metadata */}
-            <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-5 space-y-3">
+            <div className="glass-card border border-slate-800 rounded-2xl p-5 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Hash className="w-4 h-4 text-sky-400" />

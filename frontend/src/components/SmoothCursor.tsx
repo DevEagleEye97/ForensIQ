@@ -134,7 +134,6 @@ export const SmoothCursor: React.FC = () => {
         style={{
           border: hovered ? '1.5px solid rgba(56, 189, 248, 0.7)' : '1px solid rgba(56, 189, 248, 0.45)',
           backgroundColor: hovered ? 'rgba(56, 189, 248, 0.12)' : 'rgba(56, 189, 248, 0.05)',
-          backdropFilter: 'blur(2px)',
           boxShadow: hovered ? '0 0 20px rgba(56, 189, 248, 0.35)' : '0 0 8px rgba(56, 189, 248, 0.15)',
         }}
       />

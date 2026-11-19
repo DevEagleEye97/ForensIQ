@@ -112,3 +112,46 @@ body {
     opacity: 0.7;
   }
 }
+
+/* ==========================================================================
+   Persistent Global Vanta Matrix & Crisp UI Layers
+   ========================================================================== */
+.vanta-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.content-layer {
+  position: relative;
+  z-index: 10;
+}
+
+.glass-card {
+  background: rgba(10, 14, 20, 0.85);
+  border: 1px solid rgba(0, 255, 65, 0.14);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.glass-card-verdict {
+  background: rgba(10, 14, 20, 0.90);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.term-cursor {
+  display: inline-block;
+  width: 0.6ch;
+  background: #00ff41;
+  filter: none !important;
+  animation: blink 1s steps(1) infinite;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
