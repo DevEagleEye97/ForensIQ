@@ -51,3 +51,4 @@ backups/*.db
 .idea/
 .DS_Store
 Thumbs.db
+audits/

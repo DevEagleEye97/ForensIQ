@@ -1,7 +1,7 @@
 /* ==========================================================================
    FORENSIQ CINEMATIC LOADER & REVEAL SYSTEM
    Aesthetic: Cyberpunk Forensic Thriller (Mr. Robot x The Matrix x Blade Runner 2049)
-   Palette: Matrix Green (#00FF41), Deep Black (#0A0A0A), Cyan Accent (#00D9FF)
+   Palette: Deep Black (#000000 / #020611), Matrix Green (#00FF41), Electric Cyber Blue (#00D9FF, #2563EB)
    ========================================================================== */
 
 @keyframes cinematicFadeIn {
@@ -70,7 +70,7 @@
     opacity: 1;
     transform: translateY(0) scale(1);
     filter: blur(0);
-    text-shadow: 0 0 20px rgba(0, 255, 65, 0.85), 0 0 45px rgba(0, 255, 65, 0.45);
+    text-shadow: 0 0 20px rgba(0, 255, 65, 0.85), 0 0 45px rgba(0, 217, 255, 0.65);
   }
 }
 
@@ -113,10 +113,10 @@
 
 @keyframes glowPulse {
   0%, 100% {
-    box-shadow: 0 0 15px rgba(0, 255, 65, 0.4), 0 0 30px rgba(0, 217, 255, 0.2);
+    box-shadow: 0 0 18px rgba(0, 255, 65, 0.5), 0 0 35px rgba(0, 217, 255, 0.4);
   }
   50% {
-    box-shadow: 0 0 35px rgba(0, 255, 65, 0.85), 0 0 50px rgba(0, 217, 255, 0.4);
+    box-shadow: 0 0 35px rgba(0, 255, 65, 0.9), 0 0 55px rgba(0, 217, 255, 0.7);
   }
 }
 
@@ -125,10 +125,78 @@
   100% { transform: translateY(1000%); }
 }
 
-/* Layer 2: Blackout cinematic frames */
+@keyframes gridScroll {
+  0% { background-position: 0 0; }
+  100% { background-position: 0 60px; }
+}
+
+/* ==========================================================================
+   BACKSIDE LINES: 3D CYBERPUNK GRID & TACTICAL COORDINATES
+   ========================================================================== */
+
+/* Dual-tone Backside Coordinate Grid (Green + Blue mixture) */
+.cyber-grid-backdrop {
+  position: absolute;
+  inset: 0;
+  background-image: 
+    linear-gradient(rgba(0, 217, 255, 0.10) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 255, 65, 0.10) 1px, transparent 1px);
+  background-size: 50px 50px;
+  mask-image: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.9) 25%, rgba(0, 0, 0, 0) 80%);
+  -webkit-mask-image: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.9) 25%, rgba(0, 0, 0, 0) 80%);
+  pointer-events: none;
+}
+
+/* 3D Horizon Grid Lines (Blade Runner 2049 / Tron perspective floor) */
+.cyber-horizon-grid {
+  position: absolute;
+  bottom: -15%;
+  left: -50%;
+  width: 200%;
+  height: 65%;
+  background-image: 
+    linear-gradient(rgba(0, 255, 65, 0.22) 1.5px, transparent 1.5px),
+    linear-gradient(90deg, rgba(0, 217, 255, 0.25) 1.5px, transparent 1.5px);
+  background-size: 60px 60px;
+  transform: perspective(500px) rotateX(72deg);
+  transform-origin: center bottom;
+  mask-image: linear-gradient(to top, rgba(0, 0, 0, 1) 15%, rgba(0, 0, 0, 0) 90%);
+  -webkit-mask-image: linear-gradient(to top, rgba(0, 0, 0, 1) 15%, rgba(0, 0, 0, 0) 90%);
+  animation: gridScroll 10s linear infinite;
+  pointer-events: none;
+}
+
+/* Crosshair Laser Lines across the back */
+.cyber-crosshair-lines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.cyber-crosshair-x {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 5%, rgba(0, 217, 255, 0.35) 25%, rgba(0, 255, 65, 0.7) 50%, rgba(0, 217, 255, 0.35) 75%, transparent 95%);
+}
+
+.cyber-crosshair-y {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: linear-gradient(180deg, transparent 5%, rgba(0, 217, 255, 0.35) 25%, rgba(0, 255, 65, 0.7) 50%, rgba(0, 217, 255, 0.35) 75%, transparent 95%);
+}
+
+/* Layer 2: Blackout cinematic frames with Dual Green-Blue Glow */
 .cinematic-frame {
-  background: #000000;
-  box-shadow: inset 0 0 60px rgba(0, 255, 65, 0.28);
+  background: #020611;
+  box-shadow: 
+    inset 0 0 60px rgba(0, 255, 65, 0.32),
+    inset 0 0 100px rgba(0, 217, 255, 0.22);
   pointer-events: none;
   will-change: transform;
 }
@@ -165,7 +233,7 @@
   height: 100vh;
 }
 
-/* Logo Reveal & Dissolve typography */
+/* Logo Reveal & Hybrid Green-Blue-White Typography */
 .forensiq-logo-letter {
   display: inline-block;
   font-family: 'JetBrains Mono', 'Fira Code', 'Orbitron', monospace;
@@ -178,6 +246,14 @@
   will-change: transform, opacity, filter;
 }
 
+.forensiq-logo-letter-hybrid {
+  background: linear-gradient(180deg, #ffffff 0%, #a7f3d0 35%, #00ff41 70%, #00d9ff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 20px rgba(0, 255, 65, 0.9)) drop-shadow(0 0 35px rgba(0, 217, 255, 0.7));
+}
+
 /* Glowing text mask revealing the animated UI underbelly */
 .forensiq-mask-window {
   position: relative;
@@ -188,11 +264,11 @@
 }
 
 .forensiq-through-mask {
-  background: linear-gradient(135deg, #00ff41 0%, #00d9ff 50%, #ffffff 100%);
+  background: linear-gradient(135deg, #00ff41 0%, #00d9ff 45%, #60a5fa 75%, #ffffff 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  filter: drop-shadow(0 0 25px rgba(0, 255, 65, 0.7));
+  filter: drop-shadow(0 0 30px rgba(0, 255, 65, 0.8)) drop-shadow(0 0 50px rgba(0, 217, 255, 0.7));
 }
 
 /* Radar scanline line */
@@ -203,8 +279,16 @@
   right: 0;
   height: 2px;
   background: linear-gradient(90deg, transparent, rgba(0, 255, 65, 0.8), rgba(0, 217, 255, 0.9), transparent);
-  box-shadow: 0 0 15px rgba(0, 255, 65, 0.8);
+  box-shadow: 0 0 18px rgba(0, 255, 65, 0.8), 0 0 25px rgba(0, 217, 255, 0.6);
   animation: scanlineAnim 3s linear infinite;
+  pointer-events: none;
+}
+
+/* Ambient Vignette Overlay to blend Deep Black, Green and Blue */
+.forensiq-ambient-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, transparent 35%, rgba(2, 6, 17, 0.75) 80%, #000000 100%);
   pointer-events: none;
 }
 
@@ -212,7 +296,8 @@
 @media (prefers-reduced-motion: reduce) {
   .cinematic-frame,
   .forensiq-logo-letter,
-  .forensiq-scanline {
+  .forensiq-scanline,
+  .cyber-horizon-grid {
     animation: none !important;
     transition: none !important;
   }
