@@ -119,9 +119,9 @@ ForensIQ is designed to **show what was flagged, where it was found, and what li
 
 ## 👥 Team Bhairava
 - **Dhanush Gangadhar** (Team Leader / Backend & Architecture)
-- *[Member 2 Name]* (Frontend & UI/UX Engineering)
-- *[Member 3 Name]* (AI Integration & Data Correlation)
-- *[Member 4 Name]* (Product, Pitch & Documentation)
+- **Disha** (Frontend & UI/UX Engineering)
+- **G Ashritha** (AI Integration & Data Correlation)
+- **Gagan GC** (Product, Pitch & Documentation)
 
 ---
-*Built with 🔱 for SAPTHAHACKS 2026. Licensed under MIT.*
+*Built with 🔱 for SAPTHAHACKS 2026 | Problem Statement 04: TruthLens. Licensed under MIT.*
