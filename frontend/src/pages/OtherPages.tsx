@@ -109,7 +109,7 @@ export default function HistoryPage() {
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'evidence_vault' },
-        (payload) => {
+        (payload: any) => {
           const newRow = payload.new as any;
           if (newRow && newRow.case_id) {
             const mapped: VaultRecord = {

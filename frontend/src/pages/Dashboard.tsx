@@ -204,7 +204,8 @@ export default function Dashboard() {
             },
             { onConflict: 'case_id' }
           )
-          .then(({ error }) => {
+          .then((res: any) => {
+            const error = res?.error;
             if (error) {
               console.warn('[Supabase Vault] Non-blocking cloud sync notification:', error.message);
             } else {
