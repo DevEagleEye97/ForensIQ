@@ -39,11 +39,11 @@ const clusters = [
 
 export default function ToolClusters() {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto mt-10 px-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 max-w-6xl mx-auto mt-6 sm:mt-10 px-2 sm:px-4">
       {clusters.map((cluster) => (
         <div
           key={cluster.title}
-          className="bg-black/50 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-[0_0_30px_rgba(0,0,0,0.5)] hover:border-cyan-500/40 hover:shadow-cyan-950/30 transition-all duration-300 group"
+          className="bg-black/50 backdrop-blur-xl border border-white/10 rounded-2xl p-4 sm:p-6 shadow-[0_0_30px_rgba(0,0,0,0.5)] hover:border-cyan-500/40 hover:shadow-cyan-950/30 transition-all duration-300 group"
         >
           {/* Cluster Header */}
           <div className="flex items-center gap-3 mb-5 border-b border-white/5 pb-4">

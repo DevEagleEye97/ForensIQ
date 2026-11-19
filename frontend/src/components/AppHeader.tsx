@@ -337,7 +337,7 @@ export default function AppHeader({ activePage, onNavigate, onGoHome }: AppHeade
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              className="border-t border-slate-800 overflow-hidden bg-slate-900/90"
+              className="border border-slate-800 overflow-hidden bg-slate-900/95 backdrop-blur-2xl pointer-events-auto rounded-2xl shadow-2xl mt-1.5 max-w-6xl mx-auto"
             >
               <div className="max-w-screen-xl mx-auto px-4 py-3">
                 <div className="relative">
@@ -367,7 +367,7 @@ export default function AppHeader({ activePage, onNavigate, onGoHome }: AppHeade
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              className="lg:hidden border-t border-slate-800 overflow-hidden bg-slate-950/98 backdrop-blur-2xl"
+              className="lg:hidden border border-slate-800 overflow-hidden bg-slate-950/98 backdrop-blur-2xl pointer-events-auto rounded-3xl shadow-2xl mt-1.5 max-w-6xl mx-auto"
             >
               <nav className="p-4 space-y-1 font-mono text-xs">
                 {navItems.map((item) => (

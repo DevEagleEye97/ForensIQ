@@ -45,27 +45,31 @@ export default function LiveForensicTerminal({ onComplete }: { onComplete: () =>
   }, [visibleLogs]);
 
   return (
-    <div className="w-full max-w-3xl mx-auto bg-black/85 border border-emerald-500/40 rounded-2xl shadow-[0_0_50px_rgba(0,255,65,0.15)] overflow-hidden font-mono text-sm backdrop-blur-2xl">
+    <div className="w-full max-w-3xl mx-auto bg-black/90 border border-emerald-500/40 rounded-2xl shadow-[0_0_50px_rgba(0,255,65,0.15)] overflow-hidden font-mono text-xs sm:text-sm backdrop-blur-2xl">
       {/* Terminal Header */}
-      <div className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500/10 border-b border-emerald-500/20">
-        <Terminal size={16} className="text-emerald-400" />
-        <span className="text-emerald-400 text-xs font-bold tracking-widest">FORENSIQ_ENGINE_V2.4 // TELEMETRY_STREAM</span>
-        <div className="ml-auto flex gap-1.5 items-center">
-          <div className="w-2.5 h-2.5 rounded-full bg-red-500/80 animate-pulse" />
-          <div className="w-2.5 h-2.5 rounded-full bg-amber-500/80" />
-          <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/80 shadow-[0_0_6px_rgba(16,185,129,0.8)]" />
+      <div className="flex items-center justify-between gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-emerald-500/10 border-b border-emerald-500/20">
+        <div className="flex items-center gap-2 min-w-0">
+          <Terminal size={15} className="text-emerald-400 flex-shrink-0" />
+          <span className="text-emerald-400 text-[10px] sm:text-xs font-bold tracking-wider truncate">
+            FORENSIQ_ENGINE_V2.4 // TELEMETRY
+          </span>
+        </div>
+        <div className="flex gap-1.5 items-center flex-shrink-0">
+          <div className="w-2 sm:w-2.5 h-2 sm:h-2.5 rounded-full bg-red-500/80 animate-pulse" />
+          <div className="w-2 sm:w-2.5 h-2 sm:h-2.5 rounded-full bg-amber-500/80" />
+          <div className="w-2 sm:w-2.5 h-2 sm:h-2.5 rounded-full bg-emerald-500/80 shadow-[0_0_6px_rgba(16,185,129,0.8)]" />
         </div>
       </div>
 
       {/* Terminal Body */}
       <div
         ref={terminalRef}
-        className="p-5 h-72 overflow-y-auto text-gray-300 space-y-1.5 select-text selection:bg-emerald-500/30 selection:text-emerald-200"
+        className="p-3.5 sm:p-5 h-60 sm:h-72 overflow-y-auto text-gray-300 space-y-1.5 select-text selection:bg-emerald-500/30 selection:text-emerald-200 custom-scrollbar"
       >
         {visibleLogs.map((log, i) => (
           <div
             key={i}
-            className={`flex items-start gap-2 text-xs sm:text-sm leading-relaxed ${
+            className={`flex items-start gap-1.5 sm:gap-2 text-[11px] sm:text-xs md:text-sm leading-relaxed break-words ${
               log.includes('[PASS]') || log.includes('[OK]')
                 ? 'text-emerald-400'
                 : log.includes('Timeout') || log.includes('Engaging') || log.includes('ABSENT')
@@ -78,21 +82,21 @@ export default function LiveForensicTerminal({ onComplete }: { onComplete: () =>
             ) : (
               <span className="opacity-40 flex-shrink-0">··</span>
             )}
-            <span className="animate-in fade-in duration-150">{log}</span>
+            <span className="animate-in fade-in duration-150 break-words">{log}</span>
           </div>
         ))}
 
         {!done && (
           <div className="flex items-center gap-2 text-emerald-400 mt-2 font-mono">
-            <span className="w-2 h-4 bg-emerald-400 animate-pulse inline-block" />
-            <span className="text-xs">Processing forensic bitstream in volatile RAM...</span>
+            <span className="w-1.5 sm:w-2 h-3.5 sm:h-4 bg-emerald-400 animate-pulse inline-block" />
+            <span className="text-[11px] sm:text-xs">Processing forensic bitstream in volatile RAM...</span>
           </div>
         )}
 
         {done && (
-          <div className="flex items-center gap-2 text-emerald-400 mt-4 font-bold border-t border-emerald-500/20 pt-3">
-            <CheckCircle2 size={16} />
-            <span>ANALYSIS COMPLETE. RENDERING VERDICT &amp; CRYPTOGRAPHIC CERTIFICATE.</span>
+          <div className="flex items-center gap-2 text-emerald-400 mt-3 sm:mt-4 font-bold border-t border-emerald-500/20 pt-2.5 sm:pt-3 text-[11px] sm:text-xs">
+            <CheckCircle2 size={15} className="flex-shrink-0" />
+            <span className="truncate">ANALYSIS COMPLETE. RENDERING VERDICT.</span>
           </div>
         )}
       </div>
