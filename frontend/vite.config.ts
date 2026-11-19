@@ -25,7 +25,6 @@ export default defineConfig({
       output: {
         manualChunks: {
           three: ['three'],
-          vanta: ['vanta'],
           charts: ['recharts'],
           motion: ['framer-motion', 'gsap'],
           icons: ['lucide-react'],

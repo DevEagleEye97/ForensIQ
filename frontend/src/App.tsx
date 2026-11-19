@@ -1,16 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import SplashPage from './pages/SplashPage';
 import Dashboard from './pages/Dashboard';
 import AppHeader, { type Page } from './components/AppHeader';
-import HistoryPage, { ReportsPage } from './pages/OtherPages';
-import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
-import TermsPage from './pages/TermsPage';
-import NotFoundPage from './pages/NotFoundPage';
-import PagesHub from './pages/PagesHub';
-import ComparePage from './pages/ComparePage';
-import TemporalVideoPage from './pages/TemporalVideoPage';
-import VoiceAudioPage from './pages/VoiceAudioPage';
-import ThreatIntelPage from './pages/ThreatIntelPage';
 import TeamSection from './components/TeamSection';
 import CookieBanner from './components/CookieBanner';
 import CinematicLoader from './components/CinematicLoader';
@@ -19,6 +10,18 @@ import Aurora from './components/Aurora';
 import SmoothCursor from './components/SmoothCursor';
 import SmoothScroll from './components/SmoothScroll';
 import { ScanLine, Settings, Shield, Github } from 'lucide-react';
+
+// Code Splitting (FCP/LCP Optimization)
+const ComparePage = lazy(() => import('./pages/ComparePage'));
+const TemporalVideoPage = lazy(() => import('./pages/TemporalVideoPage'));
+const VoiceAudioPage = lazy(() => import('./pages/VoiceAudioPage'));
+const ThreatIntelPage = lazy(() => import('./pages/ThreatIntelPage'));
+const HistoryPage = lazy(() => import('./pages/OtherPages').then((m) => ({ default: m.default })));
+const ReportsPage = lazy(() => import('./pages/OtherPages').then((m) => ({ default: m.ReportsPage })));
+const PrivacyPolicyPage = lazy(() => import('./pages/PrivacyPolicyPage'));
+const TermsPage = lazy(() => import('./pages/TermsPage'));
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
+const PagesHub = lazy(() => import('./pages/PagesHub'));
 
 type View = 'splash' | 'app';
 
@@ -157,66 +160,75 @@ export default function App() {
 
           {/* Main Page Routing */}
           <div className="flex-1 flex flex-col min-h-0">
-            {page === 'dashboard' && <Dashboard />}
-
-            {page === 'compare' && <ComparePage />}
-            {page === 'video' && <TemporalVideoPage />}
-            {page === 'audio' && <VoiceAudioPage />}
-            {page === 'threat-intel' && <ThreatIntelPage />}
-
-            {page === 'pages' && (
-              <PagesHub onNavigate={navigateTo} onGoHome={goHome} />
-            )}
-
-            {page === 'scans' && (
-              <div className="flex-1 flex items-center justify-center text-slate-500 flex-col gap-3 p-6 text-center">
-                <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 text-indigo-400">
-                  <ScanLine className="w-10 h-10 animate-pulse" />
+            <Suspense fallback={
+              <div className="flex-1 flex items-center justify-center p-12 text-cyan-400 font-mono text-sm">
+                <div className="flex items-center gap-3">
+                  <div className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping" />
+                  <span>INITIALIZING FORENSIC SUBSYSTEM...</span>
                 </div>
-                <h3 className="text-sm font-semibold text-slate-200 font-mono">Live Stream Analysis</h3>
-                <p className="text-xs text-slate-500 max-w-sm font-mono">
-                  RTP/RTSP ingestion interface armed. Connect frame grabber stream to initiate real-time inspection.
-                </p>
               </div>
-            )}
+            }>
+              {page === 'dashboard' && <Dashboard />}
 
-            {page === 'history' && <HistoryPage />}
-            {page === 'reports' && <ReportsPage />}
-            {page === 'team' && (
-              <div className="flex-1 p-4 sm:p-6 lg:p-8">
-                <TeamSection />
-              </div>
-            )}
-            {page === 'privacy' && (
-              <PrivacyPolicyPage
-                onBack={() => navigateTo('dashboard')}
-                onSwitchToTerms={() => navigateTo('terms')}
-              />
-            )}
-            {page === 'terms' && (
-              <TermsPage
-                onBack={() => navigateTo('dashboard')}
-                onSwitchToPrivacy={() => navigateTo('privacy')}
-              />
-            )}
-            {page === 'not-found' && (
-              <NotFoundPage
-                onGoHome={goHome}
-                onNavigateToDashboard={() => navigateTo('dashboard')}
-              />
-            )}
+              {page === 'compare' && <ComparePage />}
+              {page === 'video' && <TemporalVideoPage />}
+              {page === 'audio' && <VoiceAudioPage />}
+              {page === 'threat-intel' && <ThreatIntelPage />}
 
-            {page === 'settings' && (
-              <div className="flex-1 flex items-center justify-center text-slate-500 flex-col gap-3 p-6 text-center">
-                <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 text-slate-400">
-                  <Settings className="w-10 h-10" />
+              {page === 'pages' && (
+                <PagesHub onNavigate={navigateTo} onGoHome={goHome} />
+              )}
+
+              {page === 'scans' && (
+                <div className="flex-1 flex items-center justify-center text-slate-500 flex-col gap-3 p-6 text-center">
+                  <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 text-indigo-400">
+                    <ScanLine className="w-10 h-10 animate-pulse" />
+                  </div>
+                  <h3 className="text-sm font-semibold text-slate-200 font-mono">Live Stream Analysis</h3>
+                  <p className="text-xs text-slate-500 max-w-sm font-mono">
+                    RTP/RTSP ingestion interface armed. Connect frame grabber stream to initiate real-time inspection.
+                  </p>
                 </div>
-                <h3 className="text-sm font-semibold text-slate-200 font-mono">Platform Configuration</h3>
-                <p className="text-xs text-slate-500 max-w-sm font-mono">
-                  API keys and neural models are managed via environment variables (OpenRouter & Hugging Face).
-                </p>
-              </div>
-            )}
+              )}
+
+              {page === 'history' && <HistoryPage />}
+              {page === 'reports' && <ReportsPage />}
+              {page === 'team' && (
+                <div className="flex-1 p-4 sm:p-6 lg:p-8">
+                  <TeamSection />
+                </div>
+              )}
+              {page === 'privacy' && (
+                <PrivacyPolicyPage
+                  onBack={() => navigateTo('dashboard')}
+                  onSwitchToTerms={() => navigateTo('terms')}
+                />
+              )}
+              {page === 'terms' && (
+                <TermsPage
+                  onBack={() => navigateTo('dashboard')}
+                  onSwitchToPrivacy={() => navigateTo('privacy')}
+                />
+              )}
+              {page === 'not-found' && (
+                <NotFoundPage
+                  onGoHome={goHome}
+                  onNavigateToDashboard={() => navigateTo('dashboard')}
+                />
+              )}
+
+              {page === 'settings' && (
+                <div className="flex-1 flex items-center justify-center text-slate-500 flex-col gap-3 p-6 text-center">
+                  <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 text-slate-400">
+                    <Settings className="w-10 h-10" />
+                  </div>
+                  <h3 className="text-sm font-semibold text-slate-200 font-mono">Platform Configuration</h3>
+                  <p className="text-xs text-slate-500 max-w-sm font-mono">
+                    API keys and neural models are managed via environment variables (OpenRouter & Hugging Face).
+                  </p>
+                </div>
+              )}
+            </Suspense>
           </div>
 
           {/* Global Tactical Footer */}
