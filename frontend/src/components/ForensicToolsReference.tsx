@@ -189,8 +189,8 @@ export const ToolCard: React.FC<ToolCardProps> = ({ tool, onSelect, selected }) 
   return (
     <motion.button
       type="button"
-      whileHover={{ scale: 1.02, x: 2 }}
-      whileTap={{ scale: 0.98 }}
+      whileHover={{ scale: 1.01 }}
+      whileTap={{ scale: 0.99 }}
       onClick={() => onSelect(tool)}
       className={`w-full text-left p-2.5 rounded-xl border transition-all duration-200 bg-slate-900/70 backdrop-blur-md relative overflow-hidden group ${
         selected

@@ -128,6 +128,7 @@ export default function App() {
           amplitude={1.1}
           speed={0.65}
           opacity={0.65}
+          mouseInteraction={false}
         />
       </div>
 

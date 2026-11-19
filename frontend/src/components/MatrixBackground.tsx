@@ -24,7 +24,7 @@ export default function MatrixBackground() {
           spacing: 12,
           maxDistance: 22,
           showDots: true,
-          mouseControls: true,
+          mouseControls: false,
           gyroControls: false,
           scale: 1.0,
         });

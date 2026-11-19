@@ -10,7 +10,6 @@ const LETTERS = ['F', 'O', 'R', 'E', 'N', 'S', 'I', 'Q'];
 
 export const CinematicTitle: React.FC<CinematicTitleProps> = ({ onComplete }) => {
   const [animationSettled, setAnimationSettled] = useState(false);
-  const [activeLetter, setActiveLetter] = useState<number | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -93,7 +92,7 @@ export const CinematicTitle: React.FC<CinematicTitleProps> = ({ onComplete }) =>
               animate={{
                 opacity: 1,
                 y: 0,
-                scale: activeLetter === index ? 1.15 : 1,
+                scale: 1,
                 filter: 'blur(0px)',
                 rotateX: 0,
               }}
@@ -104,8 +103,6 @@ export const CinematicTitle: React.FC<CinematicTitleProps> = ({ onComplete }) =>
                 stiffness: 140,
                 damping: 14,
               }}
-              onMouseEnter={() => setActiveLetter(index)}
-              onMouseLeave={() => setActiveLetter(null)}
               className="relative inline-block cursor-pointer transition-colors duration-150 group"
             >
               {/* Individual Glow & Gradient */}
@@ -131,31 +128,33 @@ export const CinematicTitle: React.FC<CinematicTitleProps> = ({ onComplete }) =>
         initial={{ opacity: 0, scaleX: 0.3 }}
         animate={{ opacity: 1, scaleX: 1 }}
         transition={{ duration: 0.8, delay: 0.9 }}
-        className="flex items-center gap-1.5 mt-8 mb-4 px-6 py-1.5 rounded-lg bg-slate-900/60 border border-slate-800/80 backdrop-blur"
+        className="flex items-center gap-1.5 mt-8 mb-4 px-6 h-9 rounded-lg bg-slate-900/60 border border-slate-800/80 backdrop-blur overflow-hidden"
       >
-        <Activity className="w-3.5 h-3.5 text-cyan-400 mr-2 animate-pulse" />
-        {Array.from({ length: 24 }).map((_, i) => (
-          <motion.div
-            key={i}
-            animate={{
-              height: [4, (i % 5 + 2) * 3 + Math.sin(i) * 3, 4],
-            }}
-            transition={{
-              duration: 1.2,
-              repeat: Infinity,
-              delay: (i * 0.05) % 0.8,
-              ease: 'easeInOut',
-            }}
-            className={`w-1 rounded-full ${
-              i % 4 === 0
-                ? 'bg-cyan-400 shadow-sm shadow-cyan-400'
-                : i % 2 === 0
-                ? 'bg-indigo-400'
-                : 'bg-slate-700'
-            }`}
-          />
-        ))}
-        <span className="text-[10px] font-mono text-slate-400 ml-2 tracking-wider">
+        <Activity className="w-3.5 h-3.5 text-cyan-400 mr-2 flex-shrink-0 animate-pulse" />
+        <div className="flex items-center gap-1.5 h-5 overflow-hidden">
+          {Array.from({ length: 24 }).map((_, i) => (
+            <motion.div
+              key={i}
+              animate={{
+                height: [4, (i % 5 + 2) * 2.5 + Math.sin(i) * 2, 4],
+              }}
+              transition={{
+                duration: 1.2,
+                repeat: Infinity,
+                delay: (i * 0.05) % 0.8,
+                ease: 'easeInOut',
+              }}
+              className={`w-1 rounded-full ${
+                i % 4 === 0
+                  ? 'bg-cyan-400 shadow-sm shadow-cyan-400'
+                  : i % 2 === 0
+                  ? 'bg-indigo-400'
+                  : 'bg-slate-700'
+              }`}
+            />
+          ))}
+        </div>
+        <span className="text-[10px] font-mono text-slate-400 ml-2 tracking-wider flex-shrink-0">
           FREQ.SPECTRUM // ONLINE
         </span>
       </motion.div>

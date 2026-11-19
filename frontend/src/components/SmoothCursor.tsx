@@ -73,30 +73,30 @@ export const SmoothCursor: React.FC = () => {
       const dx = targetX - cursor.current.x;
       const dy = targetY - cursor.current.y;
 
-      cursor.current.vx = dx * 0.22;
-      cursor.current.vy = dy * 0.22;
-
-      cursor.current.x += cursor.current.vx;
-      cursor.current.y += cursor.current.vy;
-
-      // Compute velocity for dynamic squash & stretch
-      const speed = Math.hypot(cursor.current.vx, cursor.current.vy);
-      const angle = Math.atan2(cursor.current.vy, cursor.current.vx) * (180 / Math.PI);
-      const stretch = Math.min(1 + speed * 0.015, 1.35);
-      const squash = Math.max(1 - speed * 0.01, 0.8);
+      if (Math.abs(dx) < 0.2 && Math.abs(dy) < 0.2) {
+        cursor.current.x = targetX;
+        cursor.current.y = targetY;
+        cursor.current.vx = 0;
+        cursor.current.vy = 0;
+      } else {
+        cursor.current.vx = dx * 0.35;
+        cursor.current.vy = dy * 0.35;
+        cursor.current.x += cursor.current.vx;
+        cursor.current.y += cursor.current.vy;
+      }
 
       if (cursorElRef.current) {
         if (hovered && magneticTarget) {
           // Snap/morph into target capsule bounds
           const targetW = Math.min(magneticTarget.width + 12, 160);
           const targetH = Math.min(magneticTarget.height + 8, 80);
-          cursorElRef.current.style.transform = `translate3d(${cursor.current.x}px, ${cursor.current.y}px, 0) translate(-50%, -50%) scale(${clicked ? 0.92 : 1})`;
+          cursorElRef.current.style.transform = `translate3d(${cursor.current.x}px, ${cursor.current.y}px, 0) translate(-50%, -50%) scale(${clicked ? 0.95 : 1})`;
           cursorElRef.current.style.width = `${targetW}px`;
           cursorElRef.current.style.height = `${targetH}px`;
           cursorElRef.current.style.borderRadius = '14px';
         } else {
           const baseSize = clicked ? 24 : 32;
-          cursorElRef.current.style.transform = `translate3d(${cursor.current.x}px, ${cursor.current.y}px, 0) translate(-50%, -50%) rotate(${angle}deg) scale(${stretch}, ${squash})`;
+          cursorElRef.current.style.transform = `translate3d(${cursor.current.x}px, ${cursor.current.y}px, 0) translate(-50%, -50%)`;
           cursorElRef.current.style.width = `${baseSize}px`;
           cursorElRef.current.style.height = `${baseSize}px`;
           cursorElRef.current.style.borderRadius = '9999px';
