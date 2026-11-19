@@ -102,8 +102,8 @@ export default function TemporalVideoPage() {
                 selectedFrame.frame === kf.frame
                   ? 'border-indigo-400 bg-indigo-950/40 shadow-lg shadow-indigo-950/50'
                   : kf.flagged
-                  ? 'border-rose-500/40 bg-rose-950/20 hover:border-rose-400'
-                  : 'border-slate-800 bg-slate-900/60 hover:border-slate-700'
+                    ? 'border-rose-500/40 bg-rose-950/20 hover:border-rose-400'
+                    : 'border-slate-800 bg-slate-900/60 hover:border-slate-700'
               )}
             >
               {/* Fake Frame Canvas Icon */}

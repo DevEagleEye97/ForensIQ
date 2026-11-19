@@ -120,7 +120,7 @@ export default function TeamSection() {
         {/* "Why We Built This" Quote Block */}
         <div className="glass-card p-6 sm:p-8 rounded-2xl border border-cyan-500/30 relative overflow-hidden bg-gradient-to-br from-slate-950/80 via-slate-900/60 to-cyan-950/20">
           <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/5 rounded-full blur-3xl pointer-events-none" />
-          
+
           <div className="relative z-10 space-y-3">
             <div className="flex items-center gap-2 text-cyan-400 text-xs font-mono uppercase tracking-wider font-semibold">
               <Sparkles className="w-4 h-4 text-cyan-400" />

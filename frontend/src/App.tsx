@@ -29,7 +29,7 @@ type View = 'splash' | 'app';
 
 function resolveRouteFromPath(rawPath: string): { view: View; page: Page } {
   const path = rawPath.toLowerCase().replace(/\/$/, '') || '/';
-  
+
   if (path === '/' || path === '/splash') {
     return { view: 'splash', page: 'dashboard' };
   }
@@ -78,7 +78,7 @@ function resolveRouteFromPath(rawPath: string): { view: View; page: Page } {
   if (path === '/team' || path === '/pages/team') {
     return { view: 'app', page: 'team' };
   }
-  
+
   return { view: 'app', page: 'not-found' };
 }
 
@@ -207,154 +207,154 @@ export default function App() {
                 onGoHome={goHome}
               />
 
-          {/* Main Page Routing */}
-          <div className="flex-1 flex flex-col min-h-0">
-            <Suspense fallback={
-              <div className="flex-1 flex items-center justify-center p-12 text-cyan-400 font-mono text-sm">
-                <div className="flex items-center gap-3">
-                  <div className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping" />
-                  <span>INITIALIZING FORENSIC SUBSYSTEM...</span>
-                </div>
+              {/* Main Page Routing */}
+              <div className="flex-1 flex flex-col min-h-0">
+                <Suspense fallback={
+                  <div className="flex-1 flex items-center justify-center p-12 text-cyan-400 font-mono text-sm">
+                    <div className="flex items-center gap-3">
+                      <div className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping" />
+                      <span>INITIALIZING FORENSIC SUBSYSTEM...</span>
+                    </div>
+                  </div>
+                }>
+                  {page === 'dashboard' && <Dashboard />}
+                  {page === 'workbench' && <WorkbenchPage />}
+                  {page === 'landing' && <LandingPage />}
+
+                  {page === 'compare' && <ComparePage />}
+                  {page === 'video' && <TemporalVideoPage />}
+                  {page === 'audio' && <VoiceAudioPage />}
+                  {page === 'threat-intel' && <ThreatIntelPage />}
+
+                  {page === 'pages' && (
+                    <PagesHub onNavigate={navigateTo} onGoHome={goHome} />
+                  )}
+
+                  {page === 'scans' && (
+                    <div className="flex-1 flex items-center justify-center text-slate-500 flex-col gap-3 p-6 text-center">
+                      <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 text-indigo-400">
+                        <ScanLine className="w-10 h-10 animate-pulse" />
+                      </div>
+                      <h3 className="text-sm font-semibold text-slate-200 font-mono">Live Stream Analysis</h3>
+                      <p className="text-xs text-slate-500 max-w-sm font-mono">
+                        RTP/RTSP ingestion interface armed. Connect frame grabber stream to initiate real-time inspection.
+                      </p>
+                    </div>
+                  )}
+
+                  {page === 'history' && <HistoryPage />}
+                  {page === 'reports' && <ReportsPage />}
+                  {page === 'team' && (
+                    <div className="flex-1 p-4 sm:p-6 lg:p-8">
+                      <TeamSection />
+                    </div>
+                  )}
+                  {page === 'privacy' && (
+                    <PrivacyPolicyPage
+                      onBack={() => navigateTo('dashboard')}
+                      onSwitchToTerms={() => navigateTo('terms')}
+                    />
+                  )}
+                  {page === 'terms' && (
+                    <TermsPage
+                      onBack={() => navigateTo('dashboard')}
+                      onSwitchToPrivacy={() => navigateTo('privacy')}
+                    />
+                  )}
+                  {page === 'not-found' && (
+                    <NotFoundPage
+                      onGoHome={goHome}
+                      onNavigateToDashboard={() => navigateTo('dashboard')}
+                    />
+                  )}
+
+                  {page === 'settings' && (
+                    <div className="flex-1 flex items-center justify-center text-slate-500 flex-col gap-3 p-6 text-center">
+                      <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 text-slate-400">
+                        <Settings className="w-10 h-10" />
+                      </div>
+                      <h3 className="text-sm font-semibold text-slate-200 font-mono">Platform Configuration</h3>
+                      <p className="text-xs text-slate-500 max-w-sm font-mono">
+                        API keys and neural models are managed via environment variables (OpenRouter & Hugging Face).
+                      </p>
+                    </div>
+                  )}
+                </Suspense>
               </div>
-            }>
-              {page === 'dashboard' && <Dashboard />}
-              {page === 'workbench' && <WorkbenchPage />}
-              {page === 'landing' && <LandingPage />}
 
-              {page === 'compare' && <ComparePage />}
-              {page === 'video' && <TemporalVideoPage />}
-              {page === 'audio' && <VoiceAudioPage />}
-              {page === 'threat-intel' && <ThreatIntelPage />}
-
-              {page === 'pages' && (
-                <PagesHub onNavigate={navigateTo} onGoHome={goHome} />
-              )}
-
-              {page === 'scans' && (
-                <div className="flex-1 flex items-center justify-center text-slate-500 flex-col gap-3 p-6 text-center">
-                  <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 text-indigo-400">
-                    <ScanLine className="w-10 h-10 animate-pulse" />
-                  </div>
-                  <h3 className="text-sm font-semibold text-slate-200 font-mono">Live Stream Analysis</h3>
-                  <p className="text-xs text-slate-500 max-w-sm font-mono">
-                    RTP/RTSP ingestion interface armed. Connect frame grabber stream to initiate real-time inspection.
-                  </p>
+              {/* Global Tactical Footer */}
+              <footer className="border-t border-slate-800/80 bg-slate-950/90 px-4 sm:px-6 py-4 text-xs text-slate-500 font-mono flex flex-col md:flex-row items-center justify-between gap-3 max-w-full overflow-hidden">
+                <div className="flex flex-wrap items-center justify-center gap-2 text-center md:text-left">
+                  <Shield className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" />
+                  <span>&copy; {new Date().getFullYear()} ForensIQ Cyber Forensics Intelligence Platform</span>
+                  <span className="text-slate-600 hidden sm:inline">&middot;</span>
+                  <span className="text-[10px] text-slate-400">NIST SP 800-86 Compliant</span>
+                  <span className="text-slate-600 hidden sm:inline">&middot;</span>
+                  <a
+                    href="mailto:investigations@forensiq.ai"
+                    className="text-cyan-400 hover:text-cyan-300 underline underline-offset-2 transition-colors"
+                    title="Send inquiries to ForensIQ forensic team"
+                  >
+                    investigations@forensiq.ai
+                  </a>
                 </div>
-              )}
 
-              {page === 'history' && <HistoryPage />}
-              {page === 'reports' && <ReportsPage />}
-              {page === 'team' && (
-                <div className="flex-1 p-4 sm:p-6 lg:p-8">
-                  <TeamSection />
+                <div className="flex flex-wrap items-center justify-center gap-3 text-[11px]">
+                  <button
+                    onClick={() => navigateTo('pages')}
+                    className="hover:text-cyan-300 transition-colors text-cyan-400"
+                  >
+                    Pages Hub
+                  </button>
+                  <span>·</span>
+                  <button
+                    onClick={() => navigateTo('privacy')}
+                    className="hover:text-slate-300 transition-colors"
+                  >
+                    Privacy Protocol
+                  </button>
+                  <span>·</span>
+                  <button
+                    onClick={() => navigateTo('terms')}
+                    className="hover:text-slate-300 transition-colors"
+                  >
+                    Terms of Analysis
+                  </button>
+                  <span>·</span>
+                  <button
+                    onClick={() => navigateTo('not-found')}
+                    className="hover:text-slate-300 transition-colors text-slate-500 hover:text-slate-300"
+                    title="Preview Custom 404 Page"
+                  >
+                    404 View
+                  </button>
+                  <span>·</span>
+                  <a
+                    href="/docs"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="hover:text-slate-300 transition-colors text-indigo-400"
+                  >
+                    API Docs
+                  </a>
+                  <span>·</span>
+                  <a
+                    href="https://github.com/DevEagleEye97/ForensIQ"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-white transition-colors text-slate-400 flex items-center gap-1 group"
+                    title="GitHub Repository (DevEagleEye97/ForensIQ)"
+                  >
+                    <Github className="w-3.5 h-3.5 group-hover:text-white transition-colors" />
+                    GitHub
+                  </a>
                 </div>
-              )}
-              {page === 'privacy' && (
-                <PrivacyPolicyPage
-                  onBack={() => navigateTo('dashboard')}
-                  onSwitchToTerms={() => navigateTo('terms')}
-                />
-              )}
-              {page === 'terms' && (
-                <TermsPage
-                  onBack={() => navigateTo('dashboard')}
-                  onSwitchToPrivacy={() => navigateTo('privacy')}
-                />
-              )}
-              {page === 'not-found' && (
-                <NotFoundPage
-                  onGoHome={goHome}
-                  onNavigateToDashboard={() => navigateTo('dashboard')}
-                />
-              )}
+              </footer>
 
-              {page === 'settings' && (
-                <div className="flex-1 flex items-center justify-center text-slate-500 flex-col gap-3 p-6 text-center">
-                  <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 text-slate-400">
-                    <Settings className="w-10 h-10" />
-                  </div>
-                  <h3 className="text-sm font-semibold text-slate-200 font-mono">Platform Configuration</h3>
-                  <p className="text-xs text-slate-500 max-w-sm font-mono">
-                    API keys and neural models are managed via environment variables (OpenRouter & Hugging Face).
-                  </p>
-                </div>
-              )}
-            </Suspense>
-          </div>
-
-          {/* Global Tactical Footer */}
-          <footer className="border-t border-slate-800/80 bg-slate-950/90 px-4 sm:px-6 py-4 text-xs text-slate-500 font-mono flex flex-col md:flex-row items-center justify-between gap-3 max-w-full overflow-hidden">
-            <div className="flex flex-wrap items-center justify-center gap-2 text-center md:text-left">
-              <Shield className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" />
-              <span>&copy; {new Date().getFullYear()} ForensIQ Cyber Forensics Intelligence Platform</span>
-              <span className="text-slate-600 hidden sm:inline">&middot;</span>
-              <span className="text-[10px] text-slate-400">NIST SP 800-86 Compliant</span>
-              <span className="text-slate-600 hidden sm:inline">&middot;</span>
-              <a
-                href="mailto:investigations@forensiq.ai"
-                className="text-cyan-400 hover:text-cyan-300 underline underline-offset-2 transition-colors"
-                title="Send inquiries to ForensIQ forensic team"
-              >
-                investigations@forensiq.ai
-              </a>
+              {/* Privacy & Zero-Disk Session Banner */}
+              <CookieBanner onNavigate={navigateTo} />
             </div>
-
-            <div className="flex flex-wrap items-center justify-center gap-3 text-[11px]">
-              <button
-                onClick={() => navigateTo('pages')}
-                className="hover:text-cyan-300 transition-colors text-cyan-400"
-              >
-                Pages Hub
-              </button>
-              <span>·</span>
-              <button
-                onClick={() => navigateTo('privacy')}
-                className="hover:text-slate-300 transition-colors"
-              >
-                Privacy Protocol
-              </button>
-              <span>·</span>
-              <button
-                onClick={() => navigateTo('terms')}
-                className="hover:text-slate-300 transition-colors"
-              >
-                Terms of Analysis
-              </button>
-              <span>·</span>
-              <button
-                onClick={() => navigateTo('not-found')}
-                className="hover:text-slate-300 transition-colors text-slate-500 hover:text-slate-300"
-                title="Preview Custom 404 Page"
-              >
-                404 View
-              </button>
-              <span>·</span>
-              <a
-                href="/docs"
-                target="_blank"
-                rel="noreferrer"
-                className="hover:text-slate-300 transition-colors text-indigo-400"
-              >
-                API Docs
-              </a>
-              <span>·</span>
-              <a
-                href="https://github.com/DevEagleEye97/ForensIQ"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:text-white transition-colors text-slate-400 flex items-center gap-1 group"
-                title="GitHub Repository (DevEagleEye97/ForensIQ)"
-              >
-                <Github className="w-3.5 h-3.5 group-hover:text-white transition-colors" />
-                GitHub
-              </a>
-            </div>
-          </footer>
-
-          {/* Privacy & Zero-Disk Session Banner */}
-          <CookieBanner onNavigate={navigateTo} />
-        </div>
-      )}
+          )}
         </div>
       </SmoothScroll>
     </>

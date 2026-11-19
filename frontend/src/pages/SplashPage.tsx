@@ -119,7 +119,7 @@ export default function SplashPage({ onEnter, onReplayCinematic, onNavigate }: S
 
         {/* 3-Column Tactical Layout: Left Matrix/Tools | Center Cinematic FORENSIQ | Right Matrix/Tools */}
         <div className="max-w-[1500px] mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-6 items-center z-10">
-          
+
           {/* LEFT FLANK: 5 Matrix Streams + Tools 1 to 5 */}
           <motion.div
             initial={{ opacity: 0, x: -30 }}

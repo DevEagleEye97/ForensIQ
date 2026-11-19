@@ -346,15 +346,15 @@ export default function Dashboard() {
         elaBase64,
         anomalies: isSample
           ? [
-              '[Spatial] Spatial scan FAIL — Laplacian patch std exceeds threshold (>48.0)',
-              '[Frequency] High compression differential detected in synthetic layer',
-              '[Metadata] Metadata WARN — Camera sensor metadata absent',
-            ]
+            '[Spatial] Spatial scan FAIL — Laplacian patch std exceeds threshold (>48.0)',
+            '[Frequency] High compression differential detected in synthetic layer',
+            '[Metadata] Metadata WARN — Camera sensor metadata absent',
+          ]
           : [
-              '[Spatial] Spatial scan PASS — Uniform gradient transitions',
-              '[Frequency] Frequency PASS — Single-generation compression',
-              '[Metadata] Metadata WARN — EXIF stripped in transit',
-            ],
+            '[Spatial] Spatial scan PASS — Uniform gradient transitions',
+            '[Frequency] Frequency PASS — Single-generation compression',
+            '[Metadata] Metadata WARN — EXIF stripped in transit',
+          ],
         classificationModel: 'ForensIQ Client-Side Autonomous Engine (Offline Fallback)',
         fallbackMode: true,
         signals: {
@@ -446,33 +446,33 @@ export default function Dashboard() {
 
   const anomalyChartData = analysisResult
     ? (() => {
-        // Use real signals from backend when available
-        const signals = analysisResult.signals;
-        if (signals && typeof signals.spatial_patch_std === 'number' && typeof signals.ela_variance_pct === 'number') {
-          return [
-            { name: 'Spatial Patch Std', score: Math.min(100, Math.round(signals.spatial_patch_std * 2)) },
-            { name: 'ELA Variance %', score: Math.min(100, Math.round(signals.ela_variance_pct * 5)) },
-            { name: 'GAN Effective %', score: signals.gan_effective_pct ?? 0 },
-            { name: 'Overall Tamper', score: analysisResult.tamperProbability },
-          ];
-        }
-        // Fallback: categorical Pass/Warn/Fail mapped to representative values
-        const statusToScore = { Pass: 15, Warn: 50, Fail: 85 } as const;
+      // Use real signals from backend when available
+      const signals = analysisResult.signals;
+      if (signals && typeof signals.spatial_patch_std === 'number' && typeof signals.ela_variance_pct === 'number') {
         return [
-          { name: 'Spatial Artifact', score: statusToScore[analysisResult.checks.spatialArtifact] },
-          { name: 'Frequency Anomaly', score: statusToScore[analysisResult.checks.frequencyAnomaly] },
-          { name: 'Metadata Integrity', score: statusToScore[analysisResult.checks.metadataIntegrity] },
-          { name: 'GAN Fingerprint', score: statusToScore[analysisResult.checks.ganFingerprint] },
+          { name: 'Spatial Patch Std', score: Math.min(100, Math.round(signals.spatial_patch_std * 2)) },
+          { name: 'ELA Variance %', score: Math.min(100, Math.round(signals.ela_variance_pct * 5)) },
+          { name: 'GAN Effective %', score: signals.gan_effective_pct ?? 0 },
           { name: 'Overall Tamper', score: analysisResult.tamperProbability },
         ];
-      })()
-    : [
-        { name: 'Spatial Artifact', score: 0 },
-        { name: 'Frequency Anomaly', score: 0 },
-        { name: 'Metadata Integrity', score: 0 },
-        { name: 'GAN Fingerprint', score: 0 },
-        { name: 'Overall Tamper', score: 0 },
+      }
+      // Fallback: categorical Pass/Warn/Fail mapped to representative values
+      const statusToScore = { Pass: 15, Warn: 50, Fail: 85 } as const;
+      return [
+        { name: 'Spatial Artifact', score: statusToScore[analysisResult.checks.spatialArtifact] },
+        { name: 'Frequency Anomaly', score: statusToScore[analysisResult.checks.frequencyAnomaly] },
+        { name: 'Metadata Integrity', score: statusToScore[analysisResult.checks.metadataIntegrity] },
+        { name: 'GAN Fingerprint', score: statusToScore[analysisResult.checks.ganFingerprint] },
+        { name: 'Overall Tamper', score: analysisResult.tamperProbability },
       ];
+    })()
+    : [
+      { name: 'Spatial Artifact', score: 0 },
+      { name: 'Frequency Anomaly', score: 0 },
+      { name: 'Metadata Integrity', score: 0 },
+      { name: 'GAN Fingerprint', score: 0 },
+      { name: 'Overall Tamper', score: 0 },
+    ];
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-slate-950 text-slate-100">
@@ -645,12 +645,12 @@ export default function Dashboard() {
                             analysisResult.verdict === 'Likely Authentic'
                               ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
                               : analysisResult.verdict === 'Authentic (Metadata Stripped)'
-                              ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
-                              : analysisResult.verdict === 'Spliced / Edited'
-                              ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
-                              : analysisResult.verdict === 'Needs Review' || analysisResult.verdict === 'Needs Human Review'
-                              ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
-                              : 'bg-rose-500/15 text-rose-400 border-rose-500/30'
+                                ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                                : analysisResult.verdict === 'Spliced / Edited'
+                                  ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                                  : analysisResult.verdict === 'Needs Review' || analysisResult.verdict === 'Needs Human Review'
+                                    ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                                    : 'bg-rose-500/15 text-rose-400 border-rose-500/30'
                           )}
                         >
                           {analysisResult.verdict.toUpperCase()}
@@ -774,10 +774,10 @@ export default function Dashboard() {
                     isRecap
                       ? 'Screen re-capture (screenshot / photo of a display)'
                       : analysisResult.verdict === 'Spliced / Edited'
-                      ? 'Edited / spliced image'
-                      : analysisResult.verdict === 'Likely AI-Generated'
-                      ? 'AI-generated (synthetic)'
-                      : 'Natural camera photo'
+                        ? 'Edited / spliced image'
+                        : analysisResult.verdict === 'Likely AI-Generated'
+                          ? 'AI-generated (synthetic)'
+                          : 'Natural camera photo'
                   );
 
                   const iconName = rep?.icon || (
@@ -1066,8 +1066,8 @@ export default function Dashboard() {
                               t.status === 'Fail'
                                 ? 'bg-rose-500/15 text-rose-400 border-rose-500/30'
                                 : t.status === 'Warn'
-                                ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
-                                : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                                  ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                                  : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
                             )}>
                               {t.status}
                             </span>
@@ -1123,10 +1123,10 @@ export default function Dashboard() {
                       !analysisResult
                         ? 'text-slate-500'
                         : analysisResult.tamperProbability >= 65
-                        ? 'text-rose-400'
-                        : analysisResult.tamperProbability >= 35
-                        ? 'text-amber-400'
-                        : 'text-emerald-400'
+                          ? 'text-rose-400'
+                          : analysisResult.tamperProbability >= 35
+                            ? 'text-amber-400'
+                            : 'text-emerald-400'
                     )}>
                       {analysisResult ? analysisResult.tamperProbability : '0'}
                     </span>
@@ -1140,8 +1140,8 @@ export default function Dashboard() {
                     analysisResult.verdict === 'Likely Authentic'
                       ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
                       : analysisResult.verdict === 'Spliced / Edited'
-                      ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
-                      : 'bg-rose-500/15 text-rose-400 border-rose-500/30'
+                        ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                        : 'bg-rose-500/15 text-rose-400 border-rose-500/30'
                   )}>
                     {analysisResult.verdict}
                   </span>
