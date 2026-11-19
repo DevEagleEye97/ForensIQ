@@ -1,6 +1,6 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import {
-  UploadCloud, Layers, Activity,
+  UploadCloud, Layers,
   AlertTriangle, ScanLine, Hash,
   Image as ImageIcon, RefreshCw, ChevronRight,
   Fingerprint, Radio, Database, Shield, Eye, AlertCircle,
@@ -19,6 +19,8 @@ import PromptModelStudio from '../components/PromptModelStudio';
 import ForensicChatbot from '../components/ForensicChatbot';
 import ShaFingerprint from '../components/ShaFingerprint';
 import TeamSection from '../components/TeamSection';
+import ToolClusters from '../components/ToolClusters';
+import LiveForensicTerminal from '../components/LiveForensicTerminal';
 
 export interface SimplifiedReport {
   verdict: 'RED_FLAG' | 'GREEN_FLAG' | 'NEEDS_REVIEW';
@@ -104,6 +106,17 @@ export default function Dashboard() {
     dbRecords: '0',
   });
 
+  const pendingResultRef = useRef<BackendAnalysisResult | null>(null);
+  const terminalDoneRef = useRef(false);
+
+  const handleTerminalComplete = useCallback(() => {
+    terminalDoneRef.current = true;
+    if (pendingResultRef.current) {
+      setAnalysisResult(pendingResultRef.current);
+      setAnalyzing(false);
+    }
+  }, []);
+
   // Fetch real system stats on mount
   useEffect(() => {
     async function fetchSystemStats() {
@@ -132,6 +145,8 @@ export default function Dashboard() {
     setErrorMessage(null);
     setAnalyzing(true);
     setAnalysisResult(null);
+    terminalDoneRef.current = false;
+    pendingResultRef.current = null;
 
     // 1. Form Validation: Size check (< 25MB)
     if (targetFile.size > MAX_FILE_SIZE_BYTES) {
@@ -177,8 +192,14 @@ export default function Dashboard() {
       }
 
       const data: BackendAnalysisResult = await response.json();
-      setAnalysisResult(data);
+      pendingResultRef.current = data;
       analytics.trackScan(targetFile.name, targetFile.size, data.verdict, data.tamperProbability);
+
+      // If terminal animation is already done, render verdict immediately
+      if (terminalDoneRef.current) {
+        setAnalysisResult(data);
+        setAnalyzing(false);
+      }
 
       // Asynchronous commit to Supabase Cloud Evidence Vault
       if (data.case_id) {
@@ -214,8 +235,8 @@ export default function Dashboard() {
       const errMsg = err instanceof Error ? err.message : 'Analysis failed. Could not reach ForensIQ backend.';
       setErrorMessage(errMsg);
       analytics.trackError('Analysis Failure', errMsg);
-    } finally {
       setAnalyzing(false);
+      pendingResultRef.current = null;
     }
   };
 
@@ -254,6 +275,8 @@ export default function Dashboard() {
     setAnalysisResult(null);
     setErrorMessage(null);
     setViewMode('rgb');
+    terminalDoneRef.current = false;
+    pendingResultRef.current = null;
   };
 
   const loadDemoSample = async () => {
@@ -422,41 +445,16 @@ export default function Dashboard() {
 
 <AnimatePresence mode="wait">
                 {analyzing ? (
-                  /* Loading State - Honest indicator */
+                  /* Live Forensic Terminal (Real-time 10-tool execution stream) */
                   <motion.div
-                    key="analyzing"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="flex flex-col items-center gap-4 py-4 w-full max-w-md"
+                    key="analyzing-terminal"
+                    initial={{ opacity: 0, scale: 0.98 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.98 }}
+                    className="w-full py-2 cursor-default"
+                    onClick={(e) => e.stopPropagation()}
                   >
-                    <div className="relative w-16 h-16">
-                      <div className="absolute inset-0 rounded-full border-2 border-indigo-500/20 animate-ping" />
-                      <div className="relative w-full h-full rounded-full bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center">
-                        <Activity className="w-7 h-7 text-indigo-400 animate-pulse" />
-                      </div>
-                    </div>
-
-                    <div className="text-center space-y-1.5 w-full">
-                      <p className="text-sm font-semibold text-slate-100 font-mono">
-                        Forensic Analysis In Progress
-                      </p>
-                      <p className="text-xs text-indigo-300 font-mono animate-pulse">
-                        Analyzing...
-                      </p>
-                    </div>
-
-                    <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                      <motion.div
-                        className="h-full bg-gradient-to-r from-indigo-500 via-sky-400 to-teal-400 rounded-full"
-                        initial={{ width: '10%' }}
-                        animate={{ width: '92%' }}
-                        transition={{ duration: 3.5, ease: 'linear' }}
-                      />
-                    </div>
-                    <span className="text-[10px] font-mono text-slate-500">
-                      In-memory ELA + parallel AI inference
-                    </span>
+                    <LiveForensicTerminal onComplete={handleTerminalComplete} />
                   </motion.div>
                 ) : analysisResult ? (
                   /* Analyzed File Summary Header inside Dropzone */
@@ -581,6 +579,11 @@ export default function Dashboard() {
                 )}
               </AnimatePresence>
             </div>
+
+            {/* Tool Clusters: 10 Operational Forensic Engines (Glassmorphism Cards) */}
+            {!analysisResult && !analyzing && (
+              <ToolClusters />
+            )}
 
             {/* TRUTHLENS FORENSIQ: 4 ENHANCEMENT DELIVERABLES */}
             {analysisResult && (

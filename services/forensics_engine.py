@@ -129,6 +129,7 @@ class ForensicImageAnalysisResponse(BaseModel):
     signals: Optional[Dict[str, Any]] = None  # Optional real measured numbers
     hidden_code_found: Optional[str] = None
     decompiled_markers: Optional[List[str]] = None
+    latency_ms: int = Field(default=0, ge=0)
 
     model_config = ConfigDict(populate_by_name=True)
 

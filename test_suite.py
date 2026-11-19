@@ -324,6 +324,16 @@ def run_tests():
     assert ai_data["hidden_code_found"] == "stable diffusion"
     print("   [PASS] Positive AI watermark detected via byte decompiler (RED FLAG, 'stable diffusion').")
 
+    print(">>> 23. Testing RFC 7807 Problem Details Error Envelopes...")
+    r_err = client.post("/api/analyze", files={"file": ("malformed.bin", b"not-an-image", "application/octet-stream")})
+    assert r_err.status_code == 415, f"Expected 415, got {r_err.status_code}"
+    assert "application/problem+json" in r_err.headers.get("content-type", "")
+    err_body = r_err.json()
+    assert "code_id" in err_body and err_body["code_id"].startswith("HTTP-")
+    assert "title" in err_body
+    assert "detail" in err_body
+    print(f"   [PASS] RFC 7807 Problem Details verified: {err_body['code_id']} ({r_err.headers['content-type']}).")
+
     print("\n=======================================================")
     print("ALL 22 TRUTHLENS FORENSIQ REGRESSION TESTS PASSED (100%)!")
     print("=======================================================")

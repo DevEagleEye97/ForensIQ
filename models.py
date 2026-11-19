@@ -60,24 +60,31 @@ class EvidenceVault(Base):
 # 2. PYDANTIC V2 SCHEMAS (FRONTEND TELEMETRY CONTRACT)
 # ==============================================================================
 
+Verdict = Literal[
+    "Likely AI-Generated",
+    "Likely Authentic",
+    "Authentic (Metadata Stripped)",
+    "Spliced / Edited",
+    "Needs Review",
+    "Needs Human Review"
+]
+Flag = Literal["GREEN", "ORANGE", "RED", "AMBER", "GREEN_FLAG", "RED_FLAG", "NEEDS_REVIEW"]
+Confidence = Literal["HIGH", "MEDIUM", "LOW"]
+
+
 class ExifDataModel(BaseModel):
     software: str
     cameraMake: str
     fileStructure: str
     quantizationHash: Literal["Normal", "Mismatched Compression"]
 
+    model_config = ConfigDict(populate_by_name=True)
+
 
 class ForensicAnalysisResponse(BaseModel):
     hash: str
     tamperProbability: int = Field(ge=0, le=100)
-    verdict: Literal[
-        "Likely AI-Generated",
-        "Likely Authentic",
-        "Authentic (Metadata Stripped)",
-        "Spliced / Edited",
-        "Needs Review",
-        "Needs Human Review"
-    ]
+    verdict: Verdict
     classificationModel: str
     exifData: ExifDataModel
     anomalies: List[str]
@@ -86,6 +93,7 @@ class ForensicAnalysisResponse(BaseModel):
     evidence_fingerprint: Optional[str] = None
     simplified_report: Optional[Dict[str, Any]] = None
     recapture_analysis: Optional[Dict[str, Any]] = None
+    latency_ms: int = Field(default=0, ge=0)
 
     model_config = ConfigDict(populate_by_name=True)
 

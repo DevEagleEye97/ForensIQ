@@ -20,4 +20,17 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          three: ['three'],
+          vanta: ['vanta'],
+          charts: ['recharts'],
+          motion: ['framer-motion', 'gsap'],
+          icons: ['lucide-react'],
+        },
+      },
+    },
+  },
 });

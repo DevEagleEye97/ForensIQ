@@ -53,8 +53,27 @@ from services.ai_inference import (
     query_forensic_analyst_chat,
 )
 
+import time
+from concurrent.futures import ThreadPoolExecutor
+from services.cache import perceptual_hash, exif_lookup
+
 logger = logging.getLogger("forensiq.routers.workbench")
 router = APIRouter(prefix="/api", tags=["Forensic Workbench"])
+
+_CPU = ThreadPoolExecutor(max_workers=4, thread_name_prefix="fiq-cpu")
+
+async def cpu(fn, *args):
+    """CPU-bound forensics off the event loop (PIL/OpenCV release the GIL on heavy ops)."""
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(_CPU, fn, *args)
+
+async def safe(coro, fallback, timeout: float):
+    """Strict timeout + graceful fallback. One dead API never kills the demo."""
+    try:
+        return await asyncio.wait_for(coro, timeout)
+    except Exception as e:
+        logger.warning("[TIER-DEGRADED] Subsystem degraded gracefully: %s", e)
+        return fallback
 
 MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024  # 25 MB Security Guard
 MAX_IMAGE_PIXELS = 40_000_000  # 40 MP decompression bomb guard
@@ -136,6 +155,8 @@ async def analyze_evidence(
     7. Persist evidence record into SQLite 'evidence_vault'.
     8. Return structured telemetry payload matching the strict Pydantic contract.
     """
+    t0 = time.perf_counter()
+
     # ── Step 1: Ingest & Validate ─────────────────────────────────────────────
     file_bytes = await _read_file_with_limit(file, MAX_FILE_SIZE_BYTES)
     file_size = len(file_bytes)
@@ -161,33 +182,32 @@ async def analyze_evidence(
     if sha256_hex in _ANALYZE_LEGACY_CACHE:
         cached_time, cached_resp = _ANALYZE_LEGACY_CACHE[sha256_hex]
         if (now - cached_time).total_seconds() < _CACHE_TTL_SECONDS:
-            logger.info("[CACHE HIT] /api/analyze returning cached response for %s", sha256_hex[:12])
+            cached_resp.latency_ms = int((time.perf_counter() - t0) * 1000)
+            logger.info("[CACHE HIT] /api/analyze returning cached response for %s (%dms)", sha256_hex[:12], cached_resp.latency_ms)
             return cached_resp
 
-    # ── Step 1.5: Byte-Level Image Decompiler ─────────────────────────────────
-    decompiled = await run_in_threadpool(parse_image_bytes, file_bytes)
+    # Fast-path perceptual hash and EXIF memoization
+    _ = perceptual_hash(sha256_hex, file_bytes)
 
-    # ── Step 2: Run 4-Check Analytical Engine ─────────────────────────────────
-    # Spatial Artifact Scan
-    spatial_status, spatial_std, spatial_obs = await run_in_threadpool(
-        run_spatial_artifact_scan, file_bytes
-    )
-
-    # Frequency Anomaly / ELA
-    ela_status, ela_variance_pct, quantization_status, ela_base64, ela_obs = await run_in_threadpool(
-        run_frequency_anomaly_ela, file_bytes, 90, mime_type
-    )
-
-    # Metadata Integrity
-    meta_status, metadata_contract, meta_obs = await run_in_threadpool(
-        run_metadata_integrity, file_bytes, mime_type, file_size
-    )
-
-    # External AI (HF + OpenRouter) CONCURRENTLY
+    # ── Step 2: Run Analytical Engine + AI Inference CONCURRENTLY (Efficiency Upgrade) ───
     async with httpx.AsyncClient() as client:
         hf_task = query_huggingface_classifier(client, file_bytes, mime_type)
         t3_task = query_openrouter_vision(client, file_bytes, mime_type)
-        (hf_score, hf_obs), (t3_score, t3_verdict, t3_obs) = await asyncio.gather(hf_task, t3_task)
+        (
+            decompiled,
+            (spatial_status, spatial_std, spatial_obs),
+            (ela_status, ela_variance_pct, quantization_status, ela_base64, ela_obs),
+            (meta_status, metadata_contract, meta_obs),
+            (hf_score, hf_obs),
+            (t3_score, t3_verdict, t3_obs),
+        ) = await asyncio.gather(
+            cpu(parse_image_bytes, file_bytes),
+            cpu(run_spatial_artifact_scan, file_bytes),
+            cpu(run_frequency_anomaly_ela, file_bytes, 90, mime_type),
+            cpu(run_metadata_integrity, file_bytes, mime_type, file_size),
+            safe(hf_task, (None, None), 5.0),
+            safe(t3_task, (None, None, []), 8.0),
+        )
 
     # GAN Fingerprint
     gan_status, gan_obs = evaluate_gan_fingerprint(hf_score, t3_score)
@@ -306,7 +326,7 @@ async def analyze_evidence(
     )
 
     # ── Generate TruthLens Simplified Report & Re-Capture Test ──────────
-    recapture = await run_in_threadpool(
+    recapture = await cpu(
         detect_screenshot_recapture, file_bytes, mime_type, metadata_contract.camera
     )
     checks_c = ChecksContract(
@@ -319,6 +339,8 @@ async def analyze_evidence(
         tamper_probability, verdict, checks_c, recapture, all_anomalies, decompiled=decompiled
     )
 
+    latency_ms = int((time.perf_counter() - t0) * 1000)
+
     response_obj = ForensicAnalysisResponse(
         hash=f"SHA256: {sha256_hex}",
         evidence_fingerprint=f"SHA256: {sha256_hex}",
@@ -330,7 +352,8 @@ async def analyze_evidence(
         exifData=exif_data,
         anomalies=all_anomalies,
         elaBase64=ela_base64,
-        case_id=case_id_returned
+        case_id=case_id_returned,
+        latency_ms=latency_ms
     )
     _cache_put(_ANALYZE_LEGACY_CACHE, sha256_hex, (now, response_obj))
     return response_obj
@@ -373,6 +396,8 @@ async def analyze_image_evidence(
     8. Return structured telemetry matching frontend contract
     """
 
+    t0 = time.perf_counter()
+
     # ── Step 1: Ingest & Validate ─────────────────────────────────────────────
     file_bytes = await _read_file_with_limit(file, MAX_FILE_SIZE_BYTES)
     file_size = len(file_bytes)
@@ -398,32 +423,32 @@ async def analyze_image_evidence(
     if sha256_hex in _FORENSIC_CACHE:
         cached_time, cached_resp = _FORENSIC_CACHE[sha256_hex]
         if (now - cached_time).total_seconds() < _CACHE_TTL_SECONDS:
-            logger.info("[CACHE HIT] /api/analyze/image returning cached response for %s", sha256_hex[:12])
+            cached_resp.latency_ms = int((time.perf_counter() - t0) * 1000)
+            logger.info("[CACHE HIT] /api/analyze/image returning cached response for %s (%dms)", sha256_hex[:12], cached_resp.latency_ms)
             return cached_resp
 
-    # ── Step 1.5: Byte-Level Image Decompiler ─────────────────────────────────
-    decompiled = await run_in_threadpool(parse_image_bytes, file_bytes)
+    # Fast-path perceptual hash and EXIF memoization
+    _ = perceptual_hash(sha256_hex, file_bytes)
 
-    # ── Step 2: Spatial Artifact Scan ────────────────────────────────────────
-    spatial_status, spatial_std, spatial_obs = await run_in_threadpool(
-        run_spatial_artifact_scan, file_bytes
-    )
-
-    # ── Step 3: Frequency Anomaly / ELA ──────────────────────────────────────
-    ela_status, ela_variance_pct, quantization_status, ela_base64, ela_obs = await run_in_threadpool(
-        run_frequency_anomaly_ela, file_bytes, 90, mime_type
-    )
-
-    # ── Step 4: Metadata Integrity ────────────────────────────────────────────
-    meta_status, metadata_contract, meta_obs = await run_in_threadpool(
-        run_metadata_integrity, file_bytes, mime_type, file_size
-    )
-
-    # ── Steps 5a & 5b: External AI (HF + OpenRouter) CONCURRENTLY ──────────────────
+    # ── Steps 2 & 5: Run 4-Check Analytical Engine + AI Concurrently (Efficiency Upgrade) ──
     async with httpx.AsyncClient() as client:
         hf_task = query_huggingface_classifier(client, file_bytes, mime_type)
         t3_task = query_openrouter_vision(client, file_bytes, mime_type)
-        (hf_score, hf_obs), (t3_score, t3_verdict, t3_obs) = await asyncio.gather(hf_task, t3_task)
+        (
+            decompiled,
+            (spatial_status, spatial_std, spatial_obs),
+            (ela_status, ela_variance_pct, quantization_status, ela_base64, ela_obs),
+            (meta_status, metadata_contract, meta_obs),
+            (hf_score, hf_obs),
+            (t3_score, t3_verdict, t3_obs),
+        ) = await asyncio.gather(
+            cpu(parse_image_bytes, file_bytes),
+            cpu(run_spatial_artifact_scan, file_bytes),
+            cpu(run_frequency_anomaly_ela, file_bytes, 90, mime_type),
+            cpu(run_metadata_integrity, file_bytes, mime_type, file_size),
+            safe(hf_task, (None, None), 5.0),
+            safe(t3_task, (None, None, []), 8.0),
+        )
 
     # ── Check 4: GAN Fingerprint mapping ─────────────────────────────────────
     gan_status, gan_obs = evaluate_gan_fingerprint(hf_score, t3_score)
@@ -519,7 +544,7 @@ async def analyze_image_evidence(
         case_id_returned = None
 
     # ── Step 8: TruthLens Re-Capture & Plain English Simplification ───────────
-    recapture_analysis = await run_in_threadpool(
+    recapture_analysis = await cpu(
         detect_screenshot_recapture, file_bytes, mime_type, metadata_contract.camera
     )
     if recapture_analysis.is_recaptured:
@@ -561,6 +586,8 @@ async def analyze_image_evidence(
         ) if (hf_score is not None or t3_score is not None) else None
     }
 
+    latency_ms = int((time.perf_counter() - t0) * 1000)
+
     response_obj = ForensicImageAnalysisResponse(
         case_id=case_id_returned,
         evidence_fingerprint=f"SHA256: {sha256_hex}",
@@ -577,6 +604,7 @@ async def analyze_image_evidence(
         signals=signals,
         hidden_code_found=simplified_report.hidden_code_found,
         decompiled_markers=decompiled.get("markers"),
+        latency_ms=latency_ms,
     )
     _cache_put(_FORENSIC_CACHE, sha256_hex, (now, response_obj))
     return response_obj

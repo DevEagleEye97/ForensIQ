@@ -11,14 +11,16 @@ import secrets
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from typing import Dict, Any
+from typing import Dict, Any, Optional
+from pydantic import BaseModel
 
 import typing_extensions
 if not hasattr(typing_extensions, "sentinel"):
     typing_extensions.sentinel = lambda name: object()
 
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, Request, status, HTTPException
 from fastapi.responses import JSONResponse, FileResponse
+from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
@@ -40,12 +42,9 @@ except ImportError:
 # Load local environment configuration
 load_dotenv()
 
-# Configure unified forensic audit logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] [%(name)s]: %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S"
-)
+# Configure unified structured JSON forensic logging
+from services.logging_conf import configure_logging
+configure_logging()
 logger = logging.getLogger("forensiq.core")
 
 # Sentry initialization if DSN configured
@@ -86,17 +85,31 @@ async def lifespan(app: FastAPI):
     logger.info("[SHUTDOWN] Terminating ForensIQ engine cleanly.")
 
 
-# Custom 429 JSON response handler
-async def custom_rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded):
-    logger.warning("[SECURITY] Rate limit exceeded from IP: %s on %s", request.client.host if request.client else "unknown", request.url.path)
+# ==============================================================================
+# RFC 7807 PROBLEM DETAILS & UNIFIED ERROR ENVELOPES
+# ==============================================================================
+
+class ProblemDetail(BaseModel):
+    type: str = "about:blank"
+    title: str
+    status: int
+    detail: str
+    instance: Optional[str] = None
+    code_id: str
+
+
+def problem(status: int, title: str, detail: str, code_id: str, path: str) -> JSONResponse:
+    """Return RFC 7807 compliant error envelope with application/problem+json media type."""
     return JSONResponse(
-        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-        content={
-            "error": "Rate limit exceeded",
-            "detail": f"Too many requests from this IP ({exc.detail}). Please retry in 60 seconds.",
-            "status_code": 429,
-            "timestamp_utc": datetime.now(timezone.utc).isoformat(),
-        },
+        status_code=status,
+        content=ProblemDetail(
+            title=title,
+            status=status,
+            detail=detail,
+            instance=path,
+            code_id=code_id
+        ).model_dump(),
+        media_type="application/problem+json",
     )
 
 
@@ -110,9 +123,55 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
+# Exception Handlers (RFC 7807 Envelopes)
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    return problem(
+        status=exc.status_code,
+        title="Request Failed",
+        detail=str(exc.detail),
+        code_id=f"HTTP-{exc.status_code}",
+        path=str(request.url.path),
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    return problem(
+        status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        title="Validation Failed",
+        detail="Payload failed schema validation.",
+        code_id="VALIDATION-001",
+        path=str(request.url.path),
+    )
+
+
+@app.exception_handler(RateLimitExceeded)
+async def custom_rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded):
+    logger.warning("[SECURITY] Rate limit exceeded from IP: %s on %s", request.client.host if request.client else "unknown", request.url.path)
+    return problem(
+        status=status.HTTP_429_TOO_MANY_REQUESTS,
+        title="Rate Limit Exceeded",
+        detail=f"Too many requests from this IP ({exc.detail}). Please retry in 60 seconds.",
+        code_id="RATE-LIMIT-429",
+        path=str(request.url.path),
+    )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    logger.exception("unhandled_fault")
+    return problem(
+        status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        title="Internal Error",
+        detail="Unexpected fault. Evidence preserved; retry is safe.",
+        code_id="INTERNAL-000",
+        path=str(request.url.path),
+    )
+
+
 # Attach limiter to app state and register custom 429 handler
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, custom_rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
 
 # Cross-Origin Resource Sharing (CORS) Configuration
@@ -179,14 +238,12 @@ async def security_api_key_guard(request: Request, call_next):
 
         if not expected_key or not secrets.compare_digest(client_key, expected_key):
             logger.warning("[SECURITY] Unauthorized API request to %s rejected.", path)
-            return JSONResponse(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                content={
-                    "error": "Unauthorized",
-                    "detail": "Invalid or missing X-API-Key header.",
-                    "status_code": 401,
-                    "timestamp_utc": datetime.now(timezone.utc).isoformat(),
-                },
+            return problem(
+                status=status.HTTP_401_UNAUTHORIZED,
+                title="Unauthorized",
+                detail="Invalid or missing X-API-Key header.",
+                code_id="AUTH-401",
+                path=path,
             )
 
     response = await call_next(request)
