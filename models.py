@@ -107,6 +107,7 @@ class VaultListResponse(BaseModel):
     items: List[VaultRecordResponse]
 
 
+
 class SystemStatusResponse(BaseModel):
     status: str
     node_id: str

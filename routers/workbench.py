@@ -20,7 +20,18 @@ import numpy as np
 
 from database import get_db
 from models import EvidenceVault, ForensicAnalysisResponse, ExifDataModel
-from services.forensics_engine import compute_ela, inspect_exif, compute_heuristic_fallback, sanitize_text
+from services.forensics_engine import (
+    compute_ela, inspect_exif, compute_heuristic_fallback, sanitize_text,
+    # New 4-check analytical engine imports
+    run_spatial_artifact_scan,
+    run_frequency_anomaly_ela,
+    run_metadata_integrity,
+    evaluate_gan_fingerprint,
+    build_consensus,
+    ChecksContract,
+    MetadataContract,
+    ForensicImageAnalysisResponse,
+)
 from services.ai_inference import query_huggingface_classifier, query_openrouter_vision
 
 logger = logging.getLogger("forensiq.routers.workbench")
@@ -211,4 +222,174 @@ async def analyze_evidence(
         anomalies=anomalies,
         elaBase64=ela_base64,
         case_id=case_id
+    )
+
+
+# ==============================================================================
+# NEW: /api/analyze/image — 4-Check Analytical Engine
+# Returns the enriched JSON contract matching the UI cards exactly:
+#   checks.spatialArtifact | checks.frequencyAnomaly |
+#   checks.metadataIntegrity | checks.ganFingerprint
+#   metadata.{sha256, format, size, camera, gps, modified, software}
+#   tamperProbability | verdict | elaBase64 | anomalies
+# ==============================================================================
+
+@router.post(
+    "/analyze/image",
+    response_model=ForensicImageAnalysisResponse,
+    status_code=status.HTTP_200_OK,
+    summary="4-Check Forensic Image Analysis",
+    description=(
+        "Advanced 4-tier analytical engine: Spatial Artifact Scan (Laplacian), "
+        "Frequency Anomaly ELA, EXIF Metadata Integrity, and GAN Fingerprint (HF + OpenRouter). "
+        "Returns enriched JSON matching the ForensIQ dashboard UI cards precisely."
+    ),
+)
+async def analyze_image_evidence(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+) -> ForensicImageAnalysisResponse:
+    """
+    4-Tier Forensic Analysis Pipeline:
+    ─────────────────────────────────
+    1. Ingest & validate (25 MB limit, magic byte check, SHA-256 fingerprint)
+    2. Check 1 — Spatial Artifact Scan (Laplacian edge variance)
+    3. Check 2 — Frequency Anomaly / ELA (in-memory compression differential)
+    4. Check 3 — Metadata Integrity (EXIF camera + GPS + software fingerprinting)
+    5. Check 4 — GAN Fingerprint (HF ViT classifier + OpenRouter vision model)
+    6. Consensus engine → tamper probability + verdict
+    7. Persist to evidence_vault
+    8. Return structured telemetry matching frontend contract
+    """
+
+    # ── Step 1: Ingest & Validate ─────────────────────────────────────────────
+    file_bytes = await file.read()
+    file_size = len(file_bytes)
+
+    if file_size > MAX_FILE_SIZE_BYTES:
+        logger.warning("[ANALYZE/IMAGE] Payload rejected: %s bytes > 25MB limit", file_size)
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="Payload Too Large: File exceeds maximum forensic threshold of 25MB.",
+        )
+
+    kind = filetype.guess(file_bytes)
+    if not kind or kind.mime not in ("image/jpeg", "image/png"):
+        detected = kind.mime if kind else "unknown / raw bytes"
+        logger.warning("[ANALYZE/IMAGE] Rejected magic byte: %s", detected)
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail=f"Unsupported Media Type: Allowed image/jpeg and image/png. Detected: {detected}.",
+        )
+
+    mime_type = kind.mime
+    sanitized_filename = sanitize_text(file.filename or "evidence.bin", max_length=120)
+
+    sha256_hex = hashlib.sha256(file_bytes).hexdigest()
+
+    # ── Step 2: Spatial Artifact Scan ────────────────────────────────────────
+    spatial_status, spatial_std, spatial_obs = run_spatial_artifact_scan(file_bytes)
+
+    # ── Step 3: Frequency Anomaly / ELA ──────────────────────────────────────
+    ela_status, ela_variance_pct, quantization_status, ela_base64, ela_obs = run_frequency_anomaly_ela(file_bytes)
+
+    # ── Step 4: Metadata Integrity ────────────────────────────────────────────
+    meta_status, metadata_contract, meta_obs = run_metadata_integrity(file_bytes, mime_type, file_size)
+
+    # ── Steps 5a & 5b: External AI (HF + OpenRouter) ─────────────────────────
+    async with httpx.AsyncClient() as client:
+        hf_score, hf_obs = await query_huggingface_classifier(client, file_bytes, mime_type)
+        t3_score, t3_verdict, t3_obs = await query_openrouter_vision(client, file_bytes, mime_type)
+
+    # ── Check 4: GAN Fingerprint mapping ─────────────────────────────────────
+    gan_status, gan_obs = evaluate_gan_fingerprint(hf_score, t3_score)
+
+    # ── Step 6: Consensus engine ──────────────────────────────────────────────
+    tamper_probability, verdict, fallback_mode = build_consensus(
+        spatial_status=spatial_status,
+        ela_status=ela_status,
+        ela_variance_pct=ela_variance_pct,
+        meta_status=meta_status,
+        gan_status=gan_status,
+        hf_score=hf_score,
+        t3_score=t3_score,
+    )
+
+    # ── Build anomaly narrative ───────────────────────────────────────────────
+    all_anomalies: list[str] = []
+    if spatial_obs:
+        all_anomalies.append(f"[Spatial] {spatial_obs[0]}")
+    if ela_obs:
+        all_anomalies.append(f"[ELA] {ela_obs[0]}")
+    if meta_obs:
+        all_anomalies.extend(f"[Metadata] {o}" for o in meta_obs[:2])
+    if gan_obs:
+        all_anomalies.append(f"[GAN] {gan_obs[0]}")
+    if hf_obs:
+        all_anomalies.append(f"[HF Classifier] {hf_obs}")
+    if t3_obs:
+        all_anomalies.extend(f"[Vision AI] {o}" for o in t3_obs[:2])
+
+    # ── Classification model label ────────────────────────────────────────────
+    if hf_score is not None and t3_score is not None:
+        classification_model = "prithivMLmods/Deep-Fake-Detector-v2-Model + OpenRouter Vision Ensemble"
+    elif hf_score is not None:
+        classification_model = "prithivMLmods/Deep-Fake-Detector-v2-Model"
+    elif t3_score is not None:
+        classification_model = "OpenRouter Vision Model"
+    else:
+        classification_model = "Heuristic Fallback (Local ELA + EXIF)"
+
+    # ── Step 7: Persist to evidence_vault ────────────────────────────────────
+    timestamp_prefix = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+    case_id = f"CASE-{timestamp_prefix}-{sha256_hex[:8].upper()}"
+
+    try:
+        from sqlalchemy import select as _select
+        stmt = _select(EvidenceVault).where(EvidenceVault.file_hash == sha256_hex)
+        res = await db.execute(stmt)
+        existing = res.scalar_one_or_none()
+
+        if existing:
+            case_id = existing.case_id
+            logger.info("[ANALYZE/IMAGE] Duplicate hash %s → reusing case %s", sha256_hex[:12], case_id)
+        else:
+            vault_entry = EvidenceVault(
+                case_id=case_id,
+                file_name=sanitized_filename,
+                file_hash=sha256_hex,
+                file_size_bytes=file_size,
+                mime_type=mime_type,
+                tamper_probability=tamper_probability,
+                verdict=verdict,
+                classification_model=classification_model,
+                exif_software=metadata_contract.software,
+                camera_make=metadata_contract.camera,
+                anomalies_json=json.dumps(all_anomalies),
+                ela_base64_preview=ela_base64,
+                timestamp_utc=datetime.now(timezone.utc),
+            )
+            db.add(vault_entry)
+            await db.commit()
+            logger.info("[ANALYZE/IMAGE] Archived evidence %s to vault.", case_id)
+    except Exception as db_exc:
+        await db.rollback()
+        logger.error("[ANALYZE/IMAGE] DB persistence failed: %s", db_exc)
+
+    # ── Step 8: Return structured telemetry ───────────────────────────────────
+    return ForensicImageAnalysisResponse(
+        case_id=case_id,
+        tamperProbability=tamper_probability,
+        verdict=verdict,
+        checks=ChecksContract(
+            spatialArtifact=spatial_status,
+            frequencyAnomaly=ela_status,
+            metadataIntegrity=meta_status,
+            ganFingerprint=gan_status,
+        ),
+        metadata=metadata_contract,
+        elaBase64=ela_base64,
+        anomalies=all_anomalies,
+        classificationModel=classification_model,
+        fallbackMode=fallback_mode,
     )
