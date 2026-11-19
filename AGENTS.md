@@ -31,3 +31,20 @@
 - Maintain audit logs for sensitive operations
 - Implement data retention policies
 - Ensure proper access controls on all resources
+
+## Pre-Launch Checklist
+
+1. Loading states
+2. Empty states
+3. Clear error messages
+4. Form validation
+5. Rate limiting
+6. Database backups
+7. Row-level security
+8. API keys off the frontend
+9. Mobile layout
+10. Custom 404 page
+11. Analytics installed
+12. Error tracking
+13. Privacy policy page
+14. Terms page
