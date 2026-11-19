@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import SplashPage from './pages/SplashPage';
 import Dashboard from './pages/Dashboard';
 import AppHeader, { type Page } from './components/AppHeader';
@@ -7,6 +7,7 @@ import ForensicAnalysisPage from './pages/ForensicAnalysisPage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import TermsPage from './pages/TermsPage';
 import NotFoundPage from './pages/NotFoundPage';
+import MatrixLoader from './components/MatrixLoader';
 import { ScanLine, Settings, Shield } from 'lucide-react';
 
 type View = 'splash' | 'app';
@@ -14,6 +15,16 @@ type View = 'splash' | 'app';
 export default function App() {
   const [view, setView] = useState<View>('splash');
   const [page, setPage] = useState<Page>('dashboard');
+  const [booting, setBooting] = useState(true);
+
+  useEffect(() => {
+    const t = setTimeout(() => setBooting(false), 1200);
+    return () => clearTimeout(t);
+  }, []);
+
+  if (booting) {
+    return <MatrixLoader />;
+  }
 
   if (view === 'splash') {
     return <SplashPage onEnter={() => setView('app')} />;

@@ -8,3 +8,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <App />
   </React.StrictMode>
 );
+
+const bootLoader = document.getElementById('boot-loader');
+if (bootLoader) {
+  bootLoader.remove();
+}
