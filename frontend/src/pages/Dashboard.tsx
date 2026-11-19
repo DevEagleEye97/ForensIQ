@@ -365,21 +365,21 @@ export default function Dashboard() {
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {/* KPI Stats Row (Responsive grid 2 cols on mobile, 4 on desktop) */}
-        <div className="border-b border-slate-800/40 bg-slate-900/20 px-4 sm:px-6 py-4 grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+        {/* KPI Stats Row (Dark Neomorphic Instruments, border removed) */}
+        <div className="px-4 sm:px-6 py-6 grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
           {[
-            { label: 'Scans Today', value: systemStats.scansToday, icon: ScanLine, color: 'text-indigo-400', bg: 'bg-indigo-500/10' },
-            { label: 'Deepfakes Flagged', value: systemStats.deepfakesFound, icon: Fingerprint, color: 'text-rose-400', bg: 'bg-rose-500/10' },
-            { label: 'Avg Authenticity', value: systemStats.avgTrustScore, icon: Radio, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
-            { label: 'Vault Cryptographic Records', value: systemStats.dbRecords, icon: Database, color: 'text-sky-400', bg: 'bg-sky-500/10' },
+            { label: 'Scans Today', value: systemStats.scansToday, icon: ScanLine, color: 'text-cyan-400' },
+            { label: 'Deepfakes Flagged', value: systemStats.deepfakesFound, icon: Fingerprint, color: 'text-rose-400' },
+            { label: 'Avg Authenticity', value: systemStats.avgTrustScore, icon: Radio, color: 'text-emerald-400' },
+            { label: 'Vault Cryptographic Records', value: systemStats.dbRecords, icon: Database, color: 'text-cyan-300' },
           ].map((s) => (
-            <div key={s.label} className="glass-card flex items-center gap-3 p-3 rounded-xl shadow-sm">
-              <div className={cn('p-2.5 rounded-lg flex-shrink-0', s.bg, s.color)}>
-                <s.icon className="w-4 h-4 sm:w-5 sm:h-5" />
+            <div key={s.label} className="neo-raised flex items-center gap-4 p-5 rounded-2xl transition-all">
+              <div className={cn('neo-inset p-3 rounded-xl flex-shrink-0 flex items-center justify-center', s.color)}>
+                <s.icon className="w-5 h-5" />
               </div>
               <div className="min-w-0">
-                <div className="text-base sm:text-lg font-bold text-slate-100 font-mono truncate">{s.value}</div>
-                <div className="text-[10px] sm:text-xs text-slate-400 truncate">{s.label}</div>
+                <div className="text-base sm:text-xl font-bold text-slate-100 font-mono truncate">{s.value}</div>
+                <div className="text-[10px] sm:text-xs text-slate-400 font-sans truncate mt-0.5">{s.label}</div>
               </div>
             </div>
           ))}
@@ -420,23 +420,19 @@ export default function Dashboard() {
           {/* LEFT 2 COLUMNS: Ingestion, ELA Comparison & Visualizer */}
           <div className="xl:col-span-2 space-y-6">
 
-            {/* Dropzone Container with Tactical Corner Brackets */}
+            {/* Dropzone Container: Dark Neomorphic Inset Well with Tactical Corner Brackets */}
             <div
               {...getRootProps()}
               className={cn(
-                'glass-card border-2 border-dashed rounded-3xl p-6 sm:p-10 text-center transition-all duration-300 relative overflow-hidden flex flex-col items-center justify-center min-h-[240px] group cursor-pointer shadow-xl',
-                isDragActive
-                  ? 'border-cyan-400 bg-cyan-950/30 scale-[1.008] shadow-cyan-500/30'
-                  : analysisResult
-                  ? 'border-slate-800 hover:border-slate-700'
-                  : 'border-slate-800 hover:border-cyan-500/50 hover:shadow-cyan-950/40'
+                'neo-inset rounded-3xl p-6 sm:p-10 text-center transition-all duration-300 relative overflow-hidden flex flex-col items-center justify-center min-h-[260px] group cursor-pointer',
+                isDragActive && 'scale-[1.01]'
               )}
             >
               {/* Tactical L-Shaped Corner Brackets */}
-              <div className="absolute top-3 left-3 w-4 h-4 border-t-2 border-l-2 border-cyan-400/80 group-hover:border-cyan-300 transition-colors pointer-events-none" />
-              <div className="absolute top-3 right-3 w-4 h-4 border-t-2 border-r-2 border-cyan-400/80 group-hover:border-cyan-300 transition-colors pointer-events-none" />
-              <div className="absolute bottom-3 left-3 w-4 h-4 border-b-2 border-l-2 border-cyan-400/80 group-hover:border-cyan-300 transition-colors pointer-events-none" />
-              <div className="absolute bottom-3 right-3 w-4 h-4 border-b-2 border-r-2 border-cyan-400/80 group-hover:border-cyan-300 transition-colors pointer-events-none" />
+              <div className="absolute top-4 left-4 w-4 h-4 border-t-2 border-l-2 border-cyan-400/80 group-hover:border-cyan-300 transition-colors pointer-events-none" />
+              <div className="absolute top-4 right-4 w-4 h-4 border-t-2 border-r-2 border-cyan-400/80 group-hover:border-cyan-300 transition-colors pointer-events-none" />
+              <div className="absolute bottom-4 left-4 w-4 h-4 border-b-2 border-l-2 border-cyan-400/80 group-hover:border-cyan-300 transition-colors pointer-events-none" />
+              <div className="absolute bottom-4 right-4 w-4 h-4 border-b-2 border-r-2 border-cyan-400/80 group-hover:border-cyan-300 transition-colors pointer-events-none" />
 
               {/* Pulsing Scan Line Beam */}
               <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-cyan-400 to-transparent opacity-60 animate-pulse pointer-events-none" />
@@ -483,7 +479,7 @@ export default function Dashboard() {
                             e.stopPropagation();
                             reset();
                           }}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium border border-slate-700 transition-colors min-h-[36px]"
+                          className="neo-btn text-xs py-2 px-4 flex items-center gap-2"
                         >
                           <RefreshCw className="w-3.5 h-3.5" />
                           New Scan
@@ -533,9 +529,9 @@ export default function Dashboard() {
                     key="idle"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    className="flex flex-col items-center gap-3.5 py-3"
+                    className="flex flex-col items-center gap-4 py-4"
                   >
-                    <div className="p-3.5 rounded-2xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 shadow-inner group-hover:scale-105 transition-transform">
+                    <div className="neo-raised p-4 rounded-2xl text-cyan-400 shadow-md group-hover:scale-105 transition-transform flex items-center justify-center">
                       <UploadCloud className="w-8 h-8" />
                     </div>
                     <div className="space-y-1.5 max-w-md">
@@ -547,17 +543,17 @@ export default function Dashboard() {
                       </p>
                     </div>
 
-                    <div className="flex flex-wrap items-center justify-center gap-2 pt-1 font-mono text-[10px]">
-                      <span className="px-2.5 py-0.5 rounded-full bg-slate-800/80 text-cyan-300 border border-slate-700">
+                    <div className="flex flex-wrap items-center justify-center gap-2.5 pt-1 font-mono text-[10px]">
+                      <span className="neo-badge text-cyan-300">
                         image/jpeg (FFD8)
                       </span>
-                      <span className="px-2.5 py-0.5 rounded-full bg-slate-800/80 text-emerald-300 border border-slate-700">
+                      <span className="neo-badge text-emerald-300">
                         image/png (8950)
                       </span>
-                      <span className="px-2.5 py-0.5 rounded-full bg-slate-800/80 text-slate-400 border border-slate-700">
+                      <span className="neo-badge text-slate-400">
                         Max 25 MB
                       </span>
-                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-950/40 text-emerald-300 border border-emerald-500/30">
+                      <span className="neo-badge text-emerald-400">
                         Strict Zero-Disk RAM
                       </span>
                     </div>
@@ -569,7 +565,7 @@ export default function Dashboard() {
                           e.stopPropagation();
                           loadDemoSample();
                         }}
-                        className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 text-xs font-mono font-medium border border-cyan-500/40 transition-all min-h-[36px] shadow-sm shadow-cyan-500/20 active:scale-95"
+                        className="neo-btn text-xs font-mono font-medium flex items-center gap-2 mt-1"
                       >
                         <Sparkles className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
                         Load Synthetic Test Target #01
@@ -647,15 +643,15 @@ export default function Dashboard() {
                         </div>
                       </div>
 
-                      {/* Investigator Mode Toggle: Simplified vs Full Telemetry */}
-                      <div className="flex items-center gap-1 p-1 bg-black/40 rounded-xl border border-white/10 self-stretch sm:self-auto justify-center">
+                      {/* Investigator Mode Toggle: Soft Cyber Neomorphic Inset Track + Raised Knob */}
+                      <div className="neo-inset p-1.5 rounded-2xl flex items-center gap-1.5 self-stretch sm:self-auto justify-center">
                         <button
                           type="button"
                           onClick={() => setInvestigatorMode('simplified')}
                           className={cn(
-                            'px-3 py-1 rounded-lg text-xs font-medium transition-all min-h-[32px]',
+                            'px-4 py-1.5 rounded-xl text-xs font-semibold font-mono transition-all min-h-[32px]',
                             investigatorMode === 'simplified'
-                              ? 'bg-indigo-600 text-white shadow'
+                              ? 'neo-raised text-cyan-300 shadow-md'
                               : 'text-slate-400 hover:text-slate-200'
                           )}
                         >
@@ -665,9 +661,9 @@ export default function Dashboard() {
                           type="button"
                           onClick={() => setInvestigatorMode('technical')}
                           className={cn(
-                            'px-3 py-1 rounded-lg text-xs font-medium transition-all min-h-[32px]',
+                            'px-4 py-1.5 rounded-xl text-xs font-semibold font-mono transition-all min-h-[32px]',
                             investigatorMode === 'technical'
-                              ? 'bg-indigo-600 text-white shadow'
+                              ? 'neo-raised text-cyan-300 shadow-md'
                               : 'text-slate-400 hover:text-slate-200'
                           )}
                         >
@@ -753,12 +749,12 @@ export default function Dashboard() {
                     <h3 className="text-sm font-semibold text-slate-200">Error Level Analysis (ELA) Heatmap</h3>
                   </div>
 
-                  <div className="flex gap-1 p-1 bg-slate-800/80 rounded-xl">
+                  <div className="neo-inset p-1.5 rounded-2xl flex items-center gap-1.5">
                     <button
                       onClick={() => setViewMode('rgb')}
                       className={cn(
-                        'flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all min-h-[32px]',
-                        viewMode === 'rgb' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
+                        'flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-semibold font-mono transition-all min-h-[32px]',
+                        viewMode === 'rgb' ? 'neo-raised text-cyan-300 shadow-md' : 'text-slate-400 hover:text-slate-200'
                       )}
                     >
                       <Eye className="w-3.5 h-3.5" /> Original RGB
@@ -766,8 +762,8 @@ export default function Dashboard() {
                     <button
                       onClick={() => setViewMode('ela')}
                       className={cn(
-                        'flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all min-h-[32px]',
-                        viewMode === 'ela' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
+                        'flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-semibold font-mono transition-all min-h-[32px]',
+                        viewMode === 'ela' ? 'neo-raised text-cyan-300 shadow-md' : 'text-slate-400 hover:text-slate-200'
                       )}
                     >
                       <Layers className="w-3.5 h-3.5" /> ELA Matrix
@@ -947,14 +943,14 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* RIGHT COLUMN: Evidence Ledger & Charts */}
+          {/* RIGHT COLUMN: Evidence Ledger & Charts (Dark Neomorphic Raised Panels) */}
           <div className="space-y-6">
 
             {/* Overall Score Card */}
-            <div className="glass-card border border-slate-800 rounded-2xl p-5 space-y-4">
+            <div className="neo-raised rounded-2xl p-6 space-y-4">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-xs text-slate-500 font-mono uppercase tracking-wider">Tamper Probability Index</p>
+                  <p className="text-xs text-slate-400 font-mono uppercase tracking-wider">Tamper Probability Index</p>
                   <div className="flex items-baseline gap-1 mt-1">
                     <span className={cn(
                       'text-4xl sm:text-5xl font-black font-mono tracking-tight',
@@ -988,7 +984,7 @@ export default function Dashboard() {
 
               {/* Segmented bar */}
               <div className="space-y-1.5">
-                <div className="flex rounded-full overflow-hidden h-2 gap-0.5 bg-slate-800">
+                <div className="flex rounded-full overflow-hidden h-2.5 gap-0.5 bg-slate-900 shadow-inner">
                   <div
                     className="bg-emerald-500 transition-all duration-500"
                     style={{ width: `${analysisResult ? Math.max(5, 100 - analysisResult.tamperProbability) : 100}%` }}
@@ -998,7 +994,7 @@ export default function Dashboard() {
                     style={{ width: `${analysisResult ? analysisResult.tamperProbability : 0}%` }}
                   />
                 </div>
-                <div className="flex justify-between text-[10px] text-slate-500 font-mono">
+                <div className="flex justify-between text-[10px] text-slate-400 font-mono">
                   <span>Authentic Prob</span>
                   <span>Tamper Risk</span>
                 </div>
@@ -1006,10 +1002,10 @@ export default function Dashboard() {
             </div>
 
             {/* Anomaly Breakdown Chart */}
-            <div className="glass-card border border-slate-800 rounded-2xl p-5 space-y-4">
+            <div className="neo-raised rounded-2xl p-6 space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-slate-200">Anomaly Signal Vectors</h3>
-                <span className="text-[10px] font-mono text-indigo-400">Normalized (0-100)</span>
+                <h3 className="text-sm font-semibold text-slate-200 font-mono">Anomaly Signal Vectors</h3>
+                <span className="neo-badge text-cyan-300">Normalized (0-100)</span>
               </div>
 
               <div className="h-48 w-full">
@@ -1018,7 +1014,7 @@ export default function Dashboard() {
                     <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" horizontal={false} />
                     <XAxis type="number" domain={[0, 100]} stroke="#475569" fontSize={10} tickLine={false} />
                     <YAxis dataKey="name" type="category" stroke="#94a3b8" fontSize={10} width={90} tickLine={false} />
-                    <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', fontSize: 11 }} />
+                    <Tooltip contentStyle={{ backgroundColor: '#0a0f16', borderColor: '#1e293b', borderRadius: '12px', fontSize: 11 }} />
                     <Bar dataKey="score" radius={[0, 4, 4, 0]}>
                       {anomalyChartData.map((entry, i) => (
                         <Cell
@@ -1033,13 +1029,13 @@ export default function Dashboard() {
             </div>
 
             {/* Cryptographic Ledger Metadata */}
-            <div className="glass-card border border-slate-800 rounded-2xl p-5 space-y-3">
+            <div className="neo-raised rounded-2xl p-6 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Hash className="w-4 h-4 text-sky-400" />
-                  <h3 className="text-sm font-semibold text-slate-200">Ledger &amp; EXIF Metadata</h3>
+                  <Hash className="w-4 h-4 text-cyan-400" />
+                  <h3 className="text-sm font-semibold text-slate-200 font-mono">Ledger &amp; EXIF Metadata</h3>
                 </div>
-                <span className="text-[10px] font-mono text-emerald-400 flex items-center gap-1">
+                <span className="neo-badge text-emerald-400 flex items-center gap-1">
                   <Check className="w-3 h-3" /> Chain-Verified
                 </span>
               </div>
@@ -1048,43 +1044,43 @@ export default function Dashboard() {
                 <div className="space-y-2.5 font-mono text-xs">
                   <ShaFingerprint hash={analysisResult.metadata.sha256} />
 
-                  <div className="flex items-center justify-between py-1.5 border-b border-slate-800 text-[11px]">
-                    <span className="text-slate-500">Camera Hardware:</span>
+                  <div className="flex items-center justify-between py-1.5 border-b border-white/5 text-[11px]">
+                    <span className="text-slate-400 font-sans">Camera Hardware:</span>
                     <span className={cn(analysisResult.metadata.camera.includes('Unknown') ? 'text-amber-400' : 'text-slate-300')}>
                       {analysisResult.metadata.camera}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between py-1.5 border-b border-slate-800 text-[11px]">
-                    <span className="text-slate-500">Software Signature:</span>
+                  <div className="flex items-center justify-between py-1.5 border-b border-white/5 text-[11px]">
+                    <span className="text-slate-400 font-sans">Software Signature:</span>
                     <span className={cn(analysisResult.metadata.software !== 'None (Stripped)' ? 'text-amber-400' : 'text-slate-300')}>
                       {analysisResult.metadata.software}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between py-1.5 border-b border-slate-800 text-[11px]">
-                    <span className="text-slate-500">GPS Coordinates:</span>
+                  <div className="flex items-center justify-between py-1.5 border-b border-white/5 text-[11px]">
+                    <span className="text-slate-400 font-sans">GPS Coordinates:</span>
                     <span className="text-slate-300">{analysisResult.metadata.gps}</span>
                   </div>
                   <div className="flex items-center justify-between py-1.5 text-[11px]">
-                    <span className="text-slate-500">File Structure:</span>
+                    <span className="text-slate-400 font-sans">File Structure:</span>
                     <span className="text-emerald-400">{analysisResult.metadata.fileStructure}</span>
                   </div>
                 </div>
               ) : (
-                <div className="py-6 text-center text-xs text-slate-500 space-y-1">
-                  <Database className="w-6 h-6 text-slate-700 mx-auto" />
+                <div className="py-6 text-center text-xs text-slate-400 space-y-1">
+                  <Database className="w-6 h-6 text-slate-600 mx-auto" />
                   <p>No cryptographic record active.</p>
-                  <p className="text-[10px] text-slate-600">Ingest an image above to populate ledger telemetry.</p>
+                  <p className="text-[10px] text-slate-500 font-sans">Ingest an image above to populate ledger telemetry.</p>
                 </div>
               )}
             </div>
 
             {/* Export & Actions */}
             {analysisResult && (
-              <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
+              <div className="neo-raised rounded-2xl p-6 space-y-3">
                 <a
                   href={`/api/report/${analysisResult.case_id}/export?format=markdown`}
                   download={`forensic_certificate_${analysisResult.case_id}.md`}
-                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-all min-h-[44px] shadow-lg shadow-indigo-900/20"
+                  className="neo-btn w-full flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-semibold text-cyan-300"
                 >
                   <FileText className="w-4 h-4" />
                   Export NIST Forensic Certificate (Markdown)
@@ -1093,7 +1089,7 @@ export default function Dashboard() {
                   href={`/api/report/${analysisResult.case_id}/export?format=html`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-all min-h-[44px] shadow-lg shadow-emerald-900/20"
+                  className="neo-btn w-full flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-semibold text-emerald-400"
                 >
                   <ExternalLink className="w-4 h-4" />
                   Open HTML Metadata Certificate

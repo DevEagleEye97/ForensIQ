@@ -1,11 +1,11 @@
 import { Cpu, Eye, ShieldCheck } from 'lucide-react';
+import { cn } from '../lib/utils';
 
 const clusters = [
   {
     title: 'Pixel & Frequency',
     icon: <Cpu className="text-cyan-400" size={20} />,
     color: 'cyan',
-    badgeClass: 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400',
     tools: [
       { name: 'ELA-90', desc: 'Compression Forensics', status: 'ARMED' },
       { name: 'LAP-3X3', desc: 'Edge Gradient Variance', status: 'ARMED' },
@@ -17,7 +17,6 @@ const clusters = [
     title: 'AI & Vision Models',
     icon: <Eye className="text-emerald-400" size={20} />,
     color: 'emerald',
-    badgeClass: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400',
     tools: [
       { name: 'ViT-V2', desc: 'Deepfake Classifier', status: 'ONLINE' },
       { name: 'VL-72B', desc: 'Multimodal Reasoner', status: 'ONLINE' }
@@ -27,7 +26,6 @@ const clusters = [
     title: 'Custody & Compliance',
     icon: <ShieldCheck className="text-amber-400" size={20} />,
     color: 'amber',
-    badgeClass: 'bg-amber-500/10 border-amber-500/20 text-amber-400',
     tools: [
       { name: 'EXIF-PRV', desc: 'Metadata Provenance', status: 'ARMED' },
       { name: 'SHA-256', desc: 'Cryptographic Ledger', status: 'ARMED' },
@@ -39,15 +37,15 @@ const clusters = [
 
 export default function ToolClusters() {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 max-w-6xl mx-auto mt-6 sm:mt-10 px-2 sm:px-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto mt-6 sm:mt-10 px-2 sm:px-4">
       {clusters.map((cluster) => (
         <div
           key={cluster.title}
-          className="bg-black/50 backdrop-blur-xl border border-white/10 rounded-2xl p-4 sm:p-6 shadow-[0_0_30px_rgba(0,0,0,0.5)] hover:border-cyan-500/40 hover:shadow-cyan-950/30 transition-all duration-300 group"
+          className="neo-raised p-6 rounded-2xl transition-all duration-300 group"
         >
           {/* Cluster Header */}
-          <div className="flex items-center gap-3 mb-5 border-b border-white/5 pb-4">
-            <div className={`p-2 rounded-lg border ${cluster.badgeClass}`}>
+          <div className="flex items-center gap-3 mb-5 pb-4 border-b border-white/5">
+            <div className="neo-inset p-2.5 rounded-xl flex items-center justify-center">
               {cluster.icon}
             </div>
             <h3 className="text-white font-bold tracking-wide font-mono text-sm sm:text-base">
@@ -56,21 +54,20 @@ export default function ToolClusters() {
           </div>
 
           {/* Tools List */}
-          <div className="space-y-3 font-mono">
+          <div className="space-y-3">
             {cluster.tools.map((tool) => (
               <div key={tool.name} className="flex items-center justify-between group/tool cursor-default py-1">
                 <div>
-                  <p className="text-sm font-semibold text-gray-300 group-hover/tool:text-cyan-300 transition-colors">
+                  <p className="text-sm font-semibold font-mono text-slate-200 group-hover/tool:text-cyan-300 transition-colors">
                     {tool.name}
                   </p>
-                  <p className="text-xs text-gray-500 font-sans">{tool.desc}</p>
+                  <p className="text-xs text-slate-400 font-sans">{tool.desc}</p>
                 </div>
                 <span
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                    tool.status === 'ONLINE'
-                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                      : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
-                  }`}
+                  className={cn(
+                    'neo-badge font-mono',
+                    tool.status === 'ONLINE' ? 'text-emerald-400' : 'text-amber-400'
+                  )}
                 >
                   {tool.status}
                 </span>
