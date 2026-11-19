@@ -127,7 +127,7 @@ export default function PrivacyPolicyPage({ onBack, onSwitchToTerms }: LegalPage
               <span className="text-indigo-400">03.</span> External AI Inference &amp; Privacy Boundaries
             </h2>
             <p className="text-xs text-slate-400">
-              When optional Tier 2 (Hugging Face) or Tier 3 (OpenRouter Vision) classification is engaged, payloads are transmitted through encrypted TLS 1.3 channels directly to enterprise inference endpoints. Neither ForensIQ nor external model providers retain image content for model re-training or marketing purposes. In the event of network disruption or missing API keys, ForensIQ automatically degrades to offline deterministic heuristics without transmitting data externally.
+              <strong>Mandatory Transit Notice:</strong> To perform AI deepfake analysis, uploaded images are securely transmitted over TLS 1.3 to third-party inference APIs (Hugging Face, OpenRouter). We do not store your images on our servers or external services beyond the immediate analysis session. In the event of network disruption, rate limits, or missing API keys, ForensIQ automatically engages our local in-memory 2D-FFT spectral neural engine with zero external transmission.
             </p>
           </section>
 

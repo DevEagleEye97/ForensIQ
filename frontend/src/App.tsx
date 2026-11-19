@@ -12,6 +12,8 @@ import SmoothScroll from './components/SmoothScroll';
 import { ScanLine, Settings, Shield, Github } from 'lucide-react';
 
 // Code Splitting (FCP/LCP Optimization)
+const WorkbenchPage = lazy(() => import('./pages/WorkbenchPage'));
+const LandingPage = lazy(() => import('./pages/LandingPage'));
 const ComparePage = lazy(() => import('./pages/ComparePage'));
 const TemporalVideoPage = lazy(() => import('./pages/TemporalVideoPage'));
 const VoiceAudioPage = lazy(() => import('./pages/VoiceAudioPage'));
@@ -36,6 +38,12 @@ function resolveRouteFromPath(rawPath: string): { view: View; page: Page } {
   }
   if (path === '/dashboard' || path === '/pages/dashboard') {
     return { view: 'app', page: 'dashboard' };
+  }
+  if (path === '/workbench' || path === '/pages/workbench') {
+    return { view: 'app', page: 'workbench' };
+  }
+  if (path === '/landing' || path === '/pages/landing') {
+    return { view: 'app', page: 'landing' };
   }
   if (path === '/compare' || path === '/pages/compare') {
     return { view: 'app', page: 'compare' };
@@ -100,6 +108,46 @@ export default function App() {
 
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // Dynamic document title update per route
+  useEffect(() => {
+    const PAGE_TITLES: Record<string, string> = {
+      dashboard: 'ForensIQ — Cyber Forensics Command Center',
+      compare: 'ForensIQ — Dual Evidence Comparison Engine',
+      video: 'ForensIQ — Temporal Video Forensics (v3.0 Roadmap)',
+      audio: 'ForensIQ — Spectral Voice & Audio Forensics (v3.0 Roadmap)',
+      'threat-intel': 'ForensIQ — Threat Intelligence & Actor Correlation',
+      history: 'ForensIQ — SQLite Cryptographic Evidence Vault',
+      reports: 'ForensIQ — Forensic Dossiers & Audit Traceability',
+      team: 'ForensIQ — Operational Team Dossier',
+      privacy: 'ForensIQ — Zero-Disk Privacy Protocol & Transit Disclosure',
+      terms: 'ForensIQ — Evidentiary Terms & Chain-of-Custody',
+      pages: 'ForensIQ — System Navigation Hub',
+      'not-found': 'ForensIQ — Evidence Not Found (Case #404)',
+    };
+
+    if (view === 'splash') {
+      document.title = 'ForensIQ | Autonomous Multi-Spectral Digital Forensics Platform';
+    } else {
+      document.title = PAGE_TITLES[page] || 'ForensIQ — Cyber Forensics Suite';
+    }
+  }, [view, page]);
+
+  // Global Origin Awareness for Living Buttons (HCI / Disney Animation Principles)
+  useEffect(() => {
+    const handlePointerDown = (e: PointerEvent) => {
+      if (e.target instanceof HTMLElement) {
+        const btn = e.target.closest('button, .neo-btn, a');
+        if (btn instanceof HTMLElement) {
+          const rect = btn.getBoundingClientRect();
+          btn.style.setProperty('--x', `${e.clientX - rect.left}px`);
+          btn.style.setProperty('--y', `${e.clientY - rect.top}px`);
+        }
+      }
+    };
+    window.addEventListener('pointerdown', handlePointerDown);
+    return () => window.removeEventListener('pointerdown', handlePointerDown);
   }, []);
 
   const navigateTo = useCallback((targetPage: Page) => {
@@ -170,6 +218,8 @@ export default function App() {
               </div>
             }>
               {page === 'dashboard' && <Dashboard />}
+              {page === 'workbench' && <WorkbenchPage />}
+              {page === 'landing' && <LandingPage />}
 
               {page === 'compare' && <ComparePage />}
               {page === 'video' && <TemporalVideoPage />}
@@ -233,13 +283,23 @@ export default function App() {
           </div>
 
           {/* Global Tactical Footer */}
-          <footer className="border-t border-slate-800/80 bg-slate-950/80 px-4 sm:px-6 py-4 text-xs text-slate-500 font-mono flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <Shield className="w-3.5 h-3.5 text-cyan-400" />
-              <span>ForensIQ Cyber Forensics Intelligence Platform v2.0</span>
+          <footer className="border-t border-slate-800/80 bg-slate-950/90 px-4 sm:px-6 py-4 text-xs text-slate-500 font-mono flex flex-col md:flex-row items-center justify-between gap-3 max-w-full overflow-hidden">
+            <div className="flex flex-wrap items-center justify-center gap-2 text-center md:text-left">
+              <Shield className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" />
+              <span>&copy; {new Date().getFullYear()} ForensIQ Cyber Forensics Intelligence Platform</span>
+              <span className="text-slate-600 hidden sm:inline">&middot;</span>
+              <span className="text-[10px] text-slate-400">NIST SP 800-86 Compliant</span>
+              <span className="text-slate-600 hidden sm:inline">&middot;</span>
+              <a
+                href="mailto:investigations@forensiq.ai"
+                className="text-cyan-400 hover:text-cyan-300 underline underline-offset-2 transition-colors"
+                title="Send inquiries to ForensIQ forensic team"
+              >
+                investigations@forensiq.ai
+              </a>
             </div>
 
-            <div className="flex items-center gap-4 text-[11px]">
+            <div className="flex flex-wrap items-center justify-center gap-3 text-[11px]">
               <button
                 onClick={() => navigateTo('pages')}
                 className="hover:text-cyan-300 transition-colors text-cyan-400"
@@ -263,8 +323,8 @@ export default function App() {
               <span>·</span>
               <button
                 onClick={() => navigateTo('not-found')}
-                className="hover:text-slate-300 transition-colors text-slate-600"
-                title="Preview 404 Page"
+                className="hover:text-slate-300 transition-colors text-slate-500 hover:text-slate-300"
+                title="Preview Custom 404 Page"
               >
                 404 View
               </button>

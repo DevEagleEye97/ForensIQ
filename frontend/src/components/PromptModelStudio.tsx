@@ -56,7 +56,7 @@ const ROLES: { id: AgentRole; title: string; badge: string; desc: string; focus:
     id: 'NIST SP 800-86 Certifier',
     title: 'NIST SP 800-86 Certifier',
     badge: 'bg-indigo-500/10 text-indigo-300 border-indigo-500/30',
-    desc: 'Prepares court-admissible dossiers under Federal Rules of Evidence Rule 902(14) with strict evidentiary isolation.',
+    desc: 'Prepares forensic indicator dossiers under Federal Rules of Evidence Rule 902(14) with strict evidentiary isolation.',
     focus: 'Zero-retention verification & compliance sign-offs'
   },
   {

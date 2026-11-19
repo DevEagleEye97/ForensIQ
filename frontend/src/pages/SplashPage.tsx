@@ -31,8 +31,8 @@ export default function SplashPage({ onEnter, onReplayCinematic, onNavigate }: S
       {/* Top Fixed HUD Navigation */}
       <nav className="fixed top-0 inset-x-0 z-50 border-b border-slate-800/80 bg-slate-950/85 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-cyan-600/20 text-cyan-400 rounded-lg border border-cyan-500/40 shadow-sm shadow-cyan-500/20">
+          <button onClick={onEnter} className="flex items-center gap-3 text-left focus:outline-none group cursor-pointer" aria-label="Go to Forensic Workbench">
+            <div className="p-2 bg-cyan-600/20 text-cyan-400 rounded-lg border border-cyan-500/40 shadow-sm shadow-cyan-500/20 group-hover:bg-cyan-600/30 transition-colors">
               <ShieldCheck className="w-5 h-5" />
             </div>
             <div className="flex flex-col">
@@ -43,7 +43,7 @@ export default function SplashPage({ onEnter, onReplayCinematic, onNavigate }: S
                 CYBER FORENSICS SUITE
               </span>
             </div>
-          </div>
+          </button>
 
           <div className="flex items-center gap-3">
             {onReplayCinematic && (
@@ -375,10 +375,18 @@ export default function SplashPage({ onEnter, onReplayCinematic, onNavigate }: S
       {/* Footer with Comprehensive Legal & Technical Framework Links */}
       <footer className="border-t border-slate-800/80 py-8 px-6 bg-slate-950/95 backdrop-blur-md">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-xs font-mono text-slate-400">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-cyan-400" />
-            <span className="text-slate-200 font-semibold">ForensIQ</span>
+            <span className="text-slate-200 font-semibold">&copy; {new Date().getFullYear()} ForensIQ</span>
             <span>— Autonomous Multi-Spectral Media Forensics Platform</span>
+            <span className="text-slate-600 hidden sm:inline">·</span>
+            <a
+              href="mailto:investigations@forensiq.ai"
+              className="text-cyan-400 hover:text-cyan-300 underline underline-offset-2"
+              title="Contact ForensIQ Investigations Team"
+            >
+              investigations@forensiq.ai
+            </a>
           </div>
 
           <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-[11px]">

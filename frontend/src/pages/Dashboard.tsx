@@ -122,9 +122,11 @@ export default function Dashboard() {
 
   const pendingResultRef = useRef<BackendAnalysisResult | null>(null);
   const terminalDoneRef = useRef(false);
+  const scanCountRef = useRef(0);
 
   const handleTerminalComplete = useCallback(() => {
     terminalDoneRef.current = true;
+    scanCountRef.current += 1;
     if (pendingResultRef.current) {
       setAnalysisResult(pendingResultRef.current);
       setAnalyzing(false);
@@ -569,8 +571,8 @@ export default function Dashboard() {
             <div
               {...getRootProps()}
               className={cn(
-                'neo-inset rounded-3xl p-6 sm:p-10 text-center transition-all duration-300 relative overflow-hidden flex flex-col items-center justify-center min-h-[260px] group cursor-pointer',
-                isDragActive && 'scale-[1.01]'
+                'neo-inset dropzone rounded-3xl p-6 sm:p-10 text-center transition-all duration-300 relative overflow-hidden flex flex-col items-center justify-center min-h-[260px] group cursor-pointer',
+                isDragActive && 'is-dragging'
               )}
             >
               {/* Tactical L-Shaped Corner Brackets */}
@@ -584,7 +586,7 @@ export default function Dashboard() {
 
               <input {...getInputProps()} disabled={analyzing} />
 
-<AnimatePresence mode="wait">
+              <AnimatePresence mode="wait">
                 {analyzing ? (
                   /* Live Forensic Terminal (Real-time 10-tool execution stream) */
                   <motion.div
@@ -595,7 +597,10 @@ export default function Dashboard() {
                     className="w-full py-2 cursor-default"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <LiveForensicTerminal onComplete={handleTerminalComplete} />
+                    <LiveForensicTerminal
+                      onComplete={handleTerminalComplete}
+                      fastMode={scanCountRef.current > 0}
+                    />
                   </motion.div>
                 ) : analysisResult ? (
                   /* Analyzed File Summary Header inside Dropzone */
@@ -677,7 +682,7 @@ export default function Dashboard() {
                     className="flex flex-col items-center gap-4 py-4"
                   >
                     <div className="neo-raised p-4 rounded-2xl text-cyan-400 shadow-md group-hover:scale-105 transition-transform flex items-center justify-center">
-                      <UploadCloud className="w-8 h-8" />
+                      <UploadCloud className="w-8 h-8 dropzone-icon" />
                     </div>
                     <div className="space-y-1.5 max-w-md">
                       <p className="font-bold text-slate-100 text-sm sm:text-base font-mono">
@@ -720,6 +725,11 @@ export default function Dashboard() {
                 )}
               </AnimatePresence>
             </div>
+
+            {/* Zero-Disk Privacy Transit Notice */}
+            <p className="text-[11px] text-slate-500 font-mono text-center px-4 max-w-xl mx-auto leading-relaxed">
+              🔒 <strong className="text-slate-400">Zero-Disk Privacy Transit Notice:</strong> Uploaded images are securely analyzed in volatile RAM streams and transmitted to third-party inference endpoints (Hugging Face / OpenRouter) for deepfake triage. We do not store your images on external servers beyond the immediate analysis session.
+            </p>
 
             {/* Tool Clusters: 10 Operational Forensic Engines (Glassmorphism Cards) */}
             {!analysisResult && !analyzing && (
@@ -779,7 +789,7 @@ export default function Dashboard() {
                   const humanReview = rep?.human_review || 'Automated indicator only — a human investigator makes the final call.';
 
                   return (
-                    <div className="neo-raised p-6 space-y-4">
+                    <div className="neo-raised verdict-card p-6 space-y-4">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div className="flex items-center gap-3">
                           <span className={cn('flag', `flag-${flag}`)}>

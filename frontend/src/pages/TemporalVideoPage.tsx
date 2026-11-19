@@ -57,17 +57,25 @@ export default function TemporalVideoPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          <span className="text-[11px] font-mono px-3 py-1.5 rounded-xl border border-emerald-500/30 bg-emerald-950/30 text-emerald-300 flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            LIVE ENGINE READY (COMING SOON)
+          <span className="text-[11px] font-mono px-3 py-1.5 rounded-xl border border-amber-500/30 bg-amber-950/30 text-amber-300 flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-amber-400" />
+            ROADMAP // v3.0 IN DEV
           </span>
           <button
             onClick={simulateAnalysis}
             className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl border border-slate-800 bg-slate-900/60 hover:bg-slate-900 text-xs font-mono text-cyan-300 transition-colors"
           >
             <RefreshCw className={cn('w-3.5 h-3.5', isSimulating && 'animate-spin')} />
-            Run Probe
+            Preview Model Architecture
           </button>
+        </div>
+      </div>
+
+      {/* Honest Roadmap Specification Banner */}
+      <div className="p-3.5 sm:p-4 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-200 text-xs font-mono flex items-start sm:items-center gap-3">
+        <span className="text-base">🚧</span>
+        <div className="leading-relaxed">
+          <strong>ROADMAP SPECIFICATION:</strong> Video temporal keyframe models are scheduled for the v3.0 release. The live production backend is actively focused on multi-spectral image, document, and cryptographic provenance triage. The timeline below illustrates the planned frame-by-frame architecture.
         </div>
       </div>
 

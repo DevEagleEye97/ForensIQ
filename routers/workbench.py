@@ -189,6 +189,17 @@ async def analyze_evidence(
     # Fast-path perceptual hash and EXIF memoization
     _ = perceptual_hash(sha256_hex, file_bytes)
 
+    meta_fallback = MetadataContract(
+        sha256=sha256_hex,
+        format=mime_type.split("/")[-1].upper(),
+        size=f"{file_size / 1024:.1f} KB",
+        camera="Unknown",
+        gps="Not available",
+        modified="Not recorded",
+        software="None",
+        fileStructure="Valid",
+    )
+
     # ── Step 2: Run Analytical Engine + AI Inference CONCURRENTLY (Efficiency Upgrade) ───
     async with httpx.AsyncClient() as client:
         hf_task = query_huggingface_classifier(client, file_bytes, mime_type)
@@ -201,12 +212,12 @@ async def analyze_evidence(
             (hf_score, hf_obs),
             (t3_score, t3_verdict, t3_obs),
         ) = await asyncio.gather(
-            cpu(parse_image_bytes, file_bytes),
-            cpu(run_spatial_artifact_scan, file_bytes),
-            cpu(run_frequency_anomaly_ela, file_bytes, 90, mime_type),
-            cpu(run_metadata_integrity, file_bytes, mime_type, file_size),
+            safe(cpu(parse_image_bytes, file_bytes), {"format": None, "markers": [], "generator_signature": None, "camera_exif": {}, "software_signature": None, "c2pa_manifest": False, "png_text_chunks": [], "decompiled_clues": []}, 5.0),
+            safe(cpu(run_spatial_artifact_scan, file_bytes), ("Warn", 0.0, ["Spatial scan deferred"]), 5.0),
+            safe(cpu(run_frequency_anomaly_ela, file_bytes, 90, mime_type), ("Warn", 0.0, "Normal", "", ["Frequency scan deferred"]), 5.0),
+            safe(cpu(run_metadata_integrity, file_bytes, mime_type, file_size), ("Warn", meta_fallback, ["Metadata extraction deferred"]), 5.0),
             safe(hf_task, (None, None), 5.0),
-            safe(t3_task, (None, None, []), 8.0),
+            safe(t3_task, (None, None, []), 5.5),
         )
 
     # GAN Fingerprint
@@ -322,22 +333,40 @@ async def analyze_evidence(
         software=metadata_contract.software,
         cameraMake=metadata_contract.camera,
         fileStructure=metadata_contract.fileStructure,
-        quantizationHash=quantization_status
+        quantizationHash="Mismatched Compression" if str(quantization_status).lower() == "mismatched compression" else "Normal"
     )
 
     # ── Generate TruthLens Simplified Report & Re-Capture Test ──────────
-    recapture = await cpu(
-        detect_screenshot_recapture, file_bytes, mime_type, metadata_contract.camera
-    )
+    try:
+        recapture = await cpu(
+            detect_screenshot_recapture, file_bytes, mime_type, metadata_contract.camera
+        )
+    except Exception as exc:
+        logger.warning("[RECAPTURE] Screenshot detection failed: %s", exc)
+        recapture = RecaptureAnalysisContract(
+            is_recaptured=False,
+            recapture_confidence=0,
+            signals_detected=[],
+            ui_badge=None,
+            recapture_adjusted_verdict=None
+        )
+
     checks_c = ChecksContract(
         spatialArtifact=spatial_status,
         frequencyAnomaly=ela_status,
         metadataIntegrity=meta_status,
         ganFingerprint=gan_status,
     )
-    simplified = generate_simplified_report(
-        tamper_probability, verdict, checks_c, recapture, all_anomalies, decompiled=decompiled
-    )
+
+    try:
+        simplified = generate_simplified_report(
+            tamper_probability, verdict, checks_c, recapture, all_anomalies, decompiled=decompiled
+        )
+    except Exception as exc:
+        logger.warning("[SIMPLIFIED_REPORT] Report generation failed: %s", exc)
+        simplified = generate_simplified_report(
+            tamper_probability, verdict, checks_c, recapture, all_anomalies, decompiled={}
+        )
 
     latency_ms = int((time.perf_counter() - t0) * 1000)
 
@@ -351,7 +380,7 @@ async def analyze_evidence(
         classificationModel=classification_model,
         exifData=exif_data,
         anomalies=all_anomalies,
-        elaBase64=ela_base64,
+        elaBase64=ela_base64 or "",
         case_id=case_id_returned,
         latency_ms=latency_ms
     )
@@ -455,10 +484,10 @@ async def analyze_image_evidence(
         ) = await asyncio.gather(
             safe(cpu(parse_image_bytes, file_bytes), {"format": None, "markers": [], "generator_signature": None, "camera_exif": {}, "software_signature": None, "c2pa_manifest": False, "png_text_chunks": [], "decompiled_clues": []}, 5.0),
             safe(cpu(run_spatial_artifact_scan, file_bytes), ("Warn", 0.0, ["Spatial scan deferred"]), 5.0),
-            safe(cpu(run_frequency_anomaly_ela, file_bytes, 90, mime_type), ("Warn", 0.0, "Standard", None, ["Frequency scan deferred"]), 5.0),
+            safe(cpu(run_frequency_anomaly_ela, file_bytes, 90, mime_type), ("Warn", 0.0, "Normal", "", ["Frequency scan deferred"]), 5.0),
             safe(cpu(run_metadata_integrity, file_bytes, mime_type, file_size), ("Warn", meta_fallback, ["Metadata extraction deferred"]), 5.0),
             safe(hf_task, (None, None), 5.0),
-            safe(t3_task, (None, None, []), 8.0),
+            safe(t3_task, (None, None, []), 5.5),
         )
 
     # ── Check 4: GAN Fingerprint mapping ─────────────────────────────────────
@@ -564,10 +593,12 @@ async def analyze_image_evidence(
         )
     except Exception as exc:
         logger.warning("[RECAPTURE] Screenshot detection failed: %s", exc)
-        recapture_analysis = RecaptureAnalysisResult(
+        recapture_analysis = RecaptureAnalysisContract(
             is_recaptured=False,
             recapture_confidence=0,
-            signals_detected=[]
+            signals_detected=[],
+            ui_badge=None,
+            recapture_adjusted_verdict=None
         )
     if recapture_analysis.is_recaptured:
         all_anomalies.insert(
@@ -630,7 +661,7 @@ async def analyze_image_evidence(
         recapture_analysis=recapture_analysis,
         checks=checks_contract,
         metadata=metadata_contract,
-        elaBase64=ela_base64,
+        elaBase64=ela_base64 or "",
         anomalies=all_anomalies,
         classificationModel=classification_model,
         fallbackMode=fallback_mode,

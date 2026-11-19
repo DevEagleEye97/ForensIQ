@@ -401,7 +401,9 @@ def run_frequency_anomaly_ela(
     quantization_status: Literal["Normal", "Mismatched Compression"] = "Normal"
 
     try:
-        orig = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        raw_img = Image.open(io.BytesIO(image_bytes))
+        raw_format = str(raw_img.format or "").upper()
+        orig = raw_img.convert("RGB")
     except Exception as exc:
         logger.error("[ELA] Failed to parse image stream: %s", exc)
         raise HTTPException(
@@ -409,9 +411,13 @@ def run_frequency_anomaly_ela(
             detail=f"Malformed image binary stream: {str(exc)}"
         )
 
-    # PNG has no JPEG compression history — ELA is inconclusive
-    if mime_type == "image/png":
-        # Still generate a visual ELA for reference (recompress as JPEG)
+    # PNG/WebP/BMP have no JPEG compression history — ELA is not applicable to lossless formats
+    is_lossless = (
+        mime_type.lower() in ("image/png", "image/webp", "image/bmp", "image/x-ms-bmp", "image/tiff")
+        or raw_format in ("PNG", "WEBP", "BMP", "TIFF")
+    )
+    if is_lossless:
+        # Generate visual recompression differential for reference only
         try:
             buffer = io.BytesIO()
             orig.save(buffer, format="JPEG", quality=quality)
@@ -436,12 +442,12 @@ def run_frequency_anomaly_ela(
             ela_base64 = ""
 
         observations.append(
-            "ELA WARN — No JPEG compression history (PNG input); "
+            "ELA WARN — No JPEG compression history (PNG/WebP input); "
             "Error Level Analysis inconclusive for lossless formats. "
-            "ELA signal excluded from consensus scoring."
+            "Zero synthetic differential recorded; signal excluded from tampering consensus."
         )
-        logger.debug("[ELA] PNG input — inconclusive, returning Warn")
-        return "Warn", 0.0, "N/A (PNG)", ela_base64, observations
+        logger.debug("[ELA] Lossless format input — returning Warn with 0.0% variance (inconclusive)")
+        return "Warn", 0.0, "Normal", ela_base64, observations
 
     try:
         # In-memory JPEG recompression — no disk writes

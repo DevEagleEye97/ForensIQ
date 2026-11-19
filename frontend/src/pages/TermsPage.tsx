@@ -166,6 +166,18 @@ export default function TermsPage({ onBack, onSwitchToPrivacy }: TermsPageProps)
               These terms are governed by international digital forensics standards and evidentiary principles. ForensIQ reserves the right to update these terms to reflect evolving AI regulatory frameworks (such as the EU AI Act and national deepfake transparency mandates).
             </p>
           </section>
+
+          <section className="space-y-2">
+            <h2 className="text-base font-bold text-white font-mono flex items-center gap-2">
+              <span className="text-teal-400">08.</span> Evidentiary Inquiries &amp; Legal Verification
+            </h2>
+            <p className="text-xs text-slate-400">
+              For forensic audit inquiries, model card documentation, or evidentiary verification questions, contact the ForensIQ engineering team at{' '}
+              <a href="mailto:investigations@forensiq.ai" className="text-cyan-400 hover:text-cyan-300 underline underline-offset-2">
+                investigations@forensiq.ai
+              </a>.
+            </p>
+          </section>
         </div>
       </div>
     </div>

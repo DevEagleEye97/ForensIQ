@@ -1,0 +1,84 @@
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@700&family=Instrument+Sans:wght@400;500&family=JetBrains+Mono:wght@400&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: #121214;
+    --surface: rgba(255, 255, 255, 0.06);
+    --border: rgba(255, 255, 255, 0.10);
+    --text: #F2EFE9;
+    --text-muted: #A8A39A;
+    --accent: #F2C230;
+    --pass: #4ADE80;
+    --warn: #FBBF24;
+    --fail: #F87171;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-text antialiased;
+    font-family: 'Instrument Sans', sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Bricolage Grotesque', sans-serif;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: 'Bricolage Grotesque', sans-serif;
+  }
+
+  .font-body {
+    font-family: 'Instrument Sans', sans-serif;
+  }
+
+  .font-data {
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .text-56 {
+    font-size: 56px;
+    line-height: 1.1;
+  }
+
+  .text-32 {
+    font-size: 32px;
+    line-height: 1.2;
+  }
+
+  .text-20 {
+    font-size: 20px;
+    line-height: 1.5;
+  }
+
+  .text-16 {
+    font-size: 16px;
+    line-height: 1.5;
+  }
+
+  .text-14 {
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .text-12 {
+    font-size: 12px;
+    line-height: 1.5;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

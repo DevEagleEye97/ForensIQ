@@ -10,33 +10,39 @@ const logs = [
   { text: '> Executing TOOL_03: FFT-2D Frequency Spectrum...', delay: 1400 },
   { text: '  └─ No periodic GAN grid artifacts found.', delay: 1600 },
   { text: '> Querying TOOL_06: ViT-V2 Deepfake Classifier (HuggingFace)...', delay: 2000 },
-  { text: '  └─ Engaging Bulletproof Fallback Heuristics.', delay: 2600 },
+  { text: '  └─ Engaging Adversarial-Resistant Fallback Heuristics.', delay: 2600 },
   { text: '> Executing TOOL_05: EXIF-PRV Provenance Scan...', delay: 3000 },
   { text: '  └─ Camera Make/Model: Parsed (Integrity Evaluated)', delay: 3300 },
   { text: '> Cross-correlating Tier 1, Tier 2, and Tier 3 signals...', delay: 3700 },
   { text: '> CONSENSUS REACHED. Generating Forensic Report.', delay: 4200, final: true }
 ];
 
-export default function LiveForensicTerminal({ onComplete }: { onComplete: () => void }) {
+interface LiveForensicTerminalProps {
+  onComplete: () => void;
+  fastMode?: boolean;
+}
+
+export default function LiveForensicTerminal({ onComplete, fastMode = false }: LiveForensicTerminalProps) {
   const [visibleLogs, setVisibleLogs] = useState<string[]>([]);
   const [done, setDone] = useState(false);
   const terminalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const multiplier = fastMode ? 0.3 : 1.0;
     const timeouts: ReturnType<typeof setTimeout>[] = [];
     logs.forEach((log) => {
       const t = setTimeout(() => {
         setVisibleLogs((prev) => [...prev, log.text]);
         if (log.final) {
           setDone(true);
-          const tFinal = setTimeout(onComplete, 800); // Transition to results
+          const tFinal = setTimeout(onComplete, fastMode ? 250 : 600); // Transition to results
           timeouts.push(tFinal);
         }
-      }, log.delay);
+      }, Math.round(log.delay * multiplier));
       timeouts.push(t);
     });
     return () => timeouts.forEach((timer) => clearTimeout(timer));
-  }, [onComplete]);
+  }, [onComplete, fastMode]);
 
   useEffect(() => {
     if (terminalRef.current) {
@@ -54,10 +60,19 @@ export default function LiveForensicTerminal({ onComplete }: { onComplete: () =>
             FORENSIQ_ENGINE_V2.4 // TELEMETRY
           </span>
         </div>
-        <div className="flex gap-1.5 items-center flex-shrink-0">
-          <div className="w-2 sm:w-2.5 h-2 sm:h-2.5 rounded-full bg-red-500/80 animate-pulse" />
-          <div className="w-2 sm:w-2.5 h-2 sm:h-2.5 rounded-full bg-amber-500/80" />
-          <div className="w-2 sm:w-2.5 h-2 sm:h-2.5 rounded-full bg-emerald-500/80 shadow-[0_0_6px_rgba(16,185,129,0.8)]" />
+        <div className="flex gap-2 items-center flex-shrink-0">
+          <button
+            onClick={onComplete}
+            className="text-[10px] text-cyan-400 hover:text-white px-2 py-0.5 rounded border border-cyan-500/30 hover:border-cyan-400 bg-cyan-950/40 transition-colors"
+            title="Skip directly to verdict results"
+          >
+            Skip ⏩
+          </button>
+          <div className="flex gap-1.5 items-center">
+            <div className="w-2 sm:w-2.5 h-2 sm:h-2.5 rounded-full bg-red-500/80 animate-pulse" />
+            <div className="w-2 sm:w-2.5 h-2 sm:h-2.5 rounded-full bg-amber-500/80" />
+            <div className="w-2 sm:w-2.5 h-2 sm:h-2.5 rounded-full bg-emerald-500/80 shadow-[0_0_6px_rgba(16,185,129,0.8)]" />
+          </div>
         </div>
       </div>
 

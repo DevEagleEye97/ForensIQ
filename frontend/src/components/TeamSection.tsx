@@ -34,7 +34,7 @@ const TEAM_MEMBERS: TeamMember[] = [
     name: 'Gagan GC',
     role: 'Product Strategy',
     spec: 'Pitch, Compliance & Evidence Dossiers',
-    note: 'Bridged complex sensor vectors into human-first investigative clarity, legal chain-of-custody, and court-admissible dossiers.',
+    note: 'Bridged complex sensor vectors into human-first investigative clarity, legal chain-of-custody, and forensic indicator dossiers.',
     avatarColor: 'from-amber-400 to-rose-600',
   },
 ];
@@ -128,7 +128,7 @@ export default function TeamSection() {
             </div>
 
             <blockquote className="text-sm sm:text-base text-slate-200 font-sans leading-relaxed italic border-l-2 border-cyan-500 pl-4 py-1">
-              "We built ForensIQ because digital evidence should never rely on black-box guesswork. In an era where a single synthetic voice or manipulated photo can alter judicial verdicts, siphon life savings, or fabricate false narratives, investigators deserve deterministic proof: byte-level decompilation, transparent uncertainty, and court-admissible chain-of-custody."
+              "We built ForensIQ because digital evidence should never rely on black-box guesswork. In an era where a single synthetic voice or manipulated photo can alter judicial verdicts, siphon life savings, or fabricate false narratives, investigators deserve transparent triage signals: byte-level decompilation, explicit uncertainty, and reproducible chain-of-custody."
             </blockquote>
 
             <div className="flex items-center justify-between pt-2 text-xs text-slate-400 font-mono">

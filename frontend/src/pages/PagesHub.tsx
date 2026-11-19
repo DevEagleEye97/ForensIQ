@@ -121,7 +121,7 @@ const PAGE_REGISTRY: PageDescriptor[] = [
     status: 'OPERATIONAL',
     color: 'text-purple-400',
     borderColor: 'border-purple-500/30',
-    description: 'Court-admissible evidentiary reporting summaries with cryptographic sign-offs, anomaly signal vector breakdowns, and forensic case dossiers.',
+    description: 'Forensic triage dossiers with cryptographic sign-offs, anomaly signal vector breakdowns, and human review indicators.',
   },
   {
     id: 'scans',

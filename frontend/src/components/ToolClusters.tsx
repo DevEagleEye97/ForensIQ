@@ -38,10 +38,11 @@ const clusters = [
 export default function ToolClusters() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto mt-6 sm:mt-10 px-2 sm:px-4">
-      {clusters.map((cluster) => (
+      {clusters.map((cluster, index) => (
         <div
           key={cluster.title}
-          className="neo-raised p-6 rounded-2xl transition-all duration-300 group"
+          className="neo-raised p-6 rounded-2xl transition-all duration-300 group stagger-reveal"
+          style={{ animationDelay: `${index * 100}ms` }}
         >
           {/* Cluster Header */}
           <div className="flex items-center gap-3 mb-5 pb-4 border-b border-white/5">

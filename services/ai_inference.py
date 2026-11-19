@@ -171,14 +171,14 @@ async def query_openrouter_vision(
     b64_img = base64.b64encode(image_bytes).decode("utf-8")
     data_uri = f"data:{mime_type};base64,{b64_img}"
 
-    # OpenRouter Model Hierarchy (Active Free Vision Models on OpenRouter)
-    primary_model = os.getenv("OPENROUTER_MODEL", "google/gemma-4-26b-a4b-it:free").strip()
+    # OpenRouter Model Hierarchy (Active Free Vision & Multimodal Reasoning Models)
+    primary_model = os.getenv("OPENROUTER_MODEL", "inclusionai/ling-3.2-flash:free").strip()
     fallback_pool = [
         primary_model,
-        "google/gemma-4-26b-a4b-it:free",
-        "nvidia/nemotron-3.5-super-vl:free",
-        "google/gemma-4-31b-it:free",
         "inclusionai/ling-3.2-flash:free",
+        "nvidia/nemotron-3.5-super-vl:free",
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "google/gemma-4-26b-a4b-it:free",
     ]
     # Deduplicate while preserving priority order
     models = list(dict.fromkeys([m for m in fallback_pool if m]))
@@ -211,7 +211,7 @@ async def query_openrouter_vision(
         "X-Title": "ForensIQ Autonomous Platform"
     }
 
-    for model in models[:2]:  # Cap at 2 models max
+    for model in models[:2]:  # Cap at 2 models max, 5.0s timeout each
         payload = {
             "model": model,
             "messages": [
@@ -231,12 +231,17 @@ async def query_openrouter_vision(
                 OPENROUTER_ENDPOINT_URL,
                 headers=headers,
                 json=payload,
-                timeout=8.0
+                timeout=5.0
             )
             if resp.status_code == 200:
                 data = resp.json()
                 msg = data.get("choices", [{}])[0].get("message", {})
-                content = msg.get("content") or msg.get("reasoning") or ""
+                content = msg.get("content") or msg.get("reasoning") or msg.get("reasoning_content") or ""
+                reasoning_tokens = (
+                    data.get("usage", {})
+                    .get("completion_tokens_details", {})
+                    .get("reasoning_tokens", 0)
+                )
                 match = re.search(r"\{[\s\S]*\}", content)
                 if match:
                     parsed = json.loads(match.group(0))
@@ -244,11 +249,13 @@ async def query_openrouter_vision(
                     t_verdict = parsed.get("verdict")
                     raw_obs = parsed.get("observations", [])
                     observations = [str(o) for o in raw_obs if isinstance(o, str)]
+                    if reasoning_tokens:
+                        logger.info("[TIER3] %s generated %d chain-of-thought reasoning tokens", model, reasoning_tokens)
                     return t_score, t_verdict, observations
             else:
                 logger.warning("[TIER3] OpenRouter model %s returned status %s (%s)", model, resp.status_code, resp.text[:100])
         except httpx.TimeoutException:
-            logger.warning("[TIER3] OpenRouter model %s timed out (>8.0s)", model)
+            logger.warning("[TIER3] OpenRouter model %s timed out (>5.0s)", model)
         except Exception as exc:
             logger.warning("[TIER3] OpenRouter call to %s failed: %s", model, exc)
             continue

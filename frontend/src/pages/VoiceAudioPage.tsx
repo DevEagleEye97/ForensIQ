@@ -72,10 +72,18 @@ export default function VoiceAudioPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          <span className="text-[11px] font-mono px-3 py-1.5 rounded-xl border border-emerald-500/30 bg-emerald-950/30 text-emerald-300 flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            ACOUSTIC ENGINE READY (COMING SOON)
+          <span className="text-[11px] font-mono px-3 py-1.5 rounded-xl border border-amber-500/30 bg-amber-950/30 text-amber-300 flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-amber-400" />
+            ROADMAP // v3.0 IN DEV
           </span>
+        </div>
+      </div>
+
+      {/* Honest Roadmap Specification Banner */}
+      <div className="p-3.5 sm:p-4 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-200 text-xs font-mono flex items-start sm:items-center gap-3">
+        <span className="text-base">🚧</span>
+        <div className="leading-relaxed">
+          <strong>ROADMAP SPECIFICATION:</strong> Voice biometric cloning and ASV acoustic verification models are slated for the v3.0 release. The live production suite is actively dedicated to image, document, and cryptographic provenance triage. The visualizer below illustrates the planned acoustic frequency inspection workflow.
         </div>
       </div>
 
