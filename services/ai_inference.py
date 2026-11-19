@@ -84,10 +84,17 @@ async def query_openrouter_vision(
     b64_img = base64.b64encode(image_bytes).decode("utf-8")
     data_uri = f"data:{mime_type};base64,{b64_img}"
 
-    models = [
+    # OpenRouter Model Hierarchy (Priority: Configured -> NVIDIA Nemotron 3.5 Super VL -> Fallbacks)
+    primary_model = os.getenv("OPENROUTER_MODEL", "nvidia/nemotron-3.5-super-vl").strip()
+    fallback_pool = [
+        primary_model,
+        "nvidia/nemotron-3.5-super-vl",
+        "nvidia/nemotron-3.5-super-vl:free",
         "meta-llama/llama-3.2-11b-vision-instruct:free",
         "qwen/qwen2.5-vl-72b-instruct:free"
     ]
+    # Deduplicate while preserving priority order
+    models = list(dict.fromkeys([m for m in fallback_pool if m]))
 
     prompt = (
         "You are an Elite Forensic Vision Specialist. Conduct a granular, objective forensic evaluation on this image.\n"
@@ -123,18 +130,19 @@ async def query_openrouter_vision(
                 }
             ],
             "temperature": 0.1,
-            "max_tokens": 400
+            "max_tokens": 1000
         }
         try:
             resp = await client.post(
                 OPENROUTER_ENDPOINT_URL,
                 headers=headers,
                 json=payload,
-                timeout=5.0
+                timeout=12.0
             )
             if resp.status_code == 200:
                 data = resp.json()
-                content = data["choices"][0]["message"]["content"]
+                msg = data.get("choices", [{}])[0].get("message", {})
+                content = msg.get("content") or msg.get("reasoning") or ""
                 match = re.search(r"\{[\s\S]*\}", content)
                 if match:
                     parsed = json.loads(match.group(0))
@@ -146,7 +154,7 @@ async def query_openrouter_vision(
             else:
                 logger.warning("[TIER3] OpenRouter model %s returned status %s", model, resp.status_code)
         except httpx.TimeoutException:
-            logger.warning("[TIER3] OpenRouter model %s timed out (>5.0s)", model)
+            logger.warning("[TIER3] OpenRouter model %s timed out (>12.0s)", model)
         except Exception as exc:
             logger.warning("[TIER3] OpenRouter call to %s failed: %s", model, exc)
             continue

@@ -36,6 +36,7 @@ wheels/
 uploads/
 temp/
 output/
+ponytail/
 
 # IDE / OS
 .vscode/
