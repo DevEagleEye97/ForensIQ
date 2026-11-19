@@ -45,6 +45,7 @@ dist/
 
 # Agent
 .agent/
+frontend/.agents/
 backups/*.db
 .vscode/
 .idea/
