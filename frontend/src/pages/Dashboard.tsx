@@ -16,6 +16,7 @@ import { cn } from '../lib/utils';
 import { analytics } from '../lib/analytics';
 import { supabase } from '../utils/supabase/client';
 import PromptModelStudio from '../components/PromptModelStudio';
+import ForensicChatbot from '../components/ForensicChatbot';
 
 export interface SimplifiedReport {
   verdict: 'RED_FLAG' | 'GREEN_FLAG' | 'NEEDS_REVIEW';
@@ -99,6 +100,7 @@ export default function Dashboard() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'rgb' | 'ela'>('rgb');
   const [copiedHash, setCopiedHash] = useState(false);
+  const [chatbotOpen, setChatbotOpen] = useState(false);
   const [investigatorMode, setInvestigatorMode] = useState<'simplified' | 'technical'>('simplified');
   const [systemStats, setSystemStats] = useState<{ scansToday: string; deepfakesFound: string; avgTrustScore: string; dbRecords: string }>({
     scansToday: '0',
@@ -1066,6 +1068,29 @@ export default function Dashboard() {
             verdict={analysisResult?.verdict}
           />
         </section>
+
+        {/* Floating AI Forensic Analyst Copilot Button (>_<) */}
+        <div className="fixed bottom-6 right-6 z-40">
+          <button
+            onClick={() => setChatbotOpen((prev) => !prev)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-slate-900/90 hover:bg-slate-800 text-cyan-300 border border-cyan-500/40 shadow-xl shadow-cyan-950/60 backdrop-blur-md transition-all hover:scale-105 active:scale-95 group font-mono text-xs"
+            title="Ask ForensIQ AI Copilot"
+            aria-label="Open ForensIQ AI Forensic Copilot"
+          >
+            <span className="text-sm font-bold tracking-tighter px-1.5 py-0.5 rounded bg-cyan-950/70 border border-cyan-500/40 text-cyan-300 group-hover:border-cyan-400 group-hover:text-cyan-200 transition-colors">
+              &gt;_&lt;
+            </span>
+            <span className="font-semibold hidden sm:inline">Analyst AI</span>
+            <Sparkles className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+          </button>
+        </div>
+
+        {/* Forensic Analyst Chatbot Drawer / Modal */}
+        <ForensicChatbot
+          isOpen={chatbotOpen}
+          onClose={() => setChatbotOpen(false)}
+          caseContext={analysisResult}
+        />
       </div>
     </div>
   );

@@ -1000,5 +1000,95 @@ def inspect_exif(
     return exif_dict, obs
 
 
+def compute_differential_forensics(
+    ref_bytes: bytes,
+    suspect_bytes: bytes,
+) -> Dict[str, Any]:
+    """
+    Differential Forensics (Pixel-Level & Spectral Comparison).
+    Aligns reference (real) and suspect (potential fake) image, computes:
+      1. Absolute pixel difference map (ImageChops.difference)
+      2. High-contrast amplified difference heatmap (colormap RGB)
+      3. Divergence metrics & percentage of modified pixels
+      4. Divergent bounding boxes (regions of modification)
+      5. Plain-English forensic summary of differential anomalies
+    """
+    img_ref = Image.open(io.BytesIO(ref_bytes)).convert("RGB")
+    img_sus = Image.open(io.BytesIO(suspect_bytes)).convert("RGB")
+
+    # Align suspect to reference dimensions
+    if img_sus.size != img_ref.size:
+        img_sus = img_sus.resize(img_ref.size, Image.Resampling.LANCZOS)
+
+    w, h = img_ref.size
+
+    # 1. Absolute difference
+    diff = ImageChops.difference(img_ref, img_sus)
+    diff_arr = np.array(diff, dtype=np.float32)
+    diff_mag = np.mean(diff_arr, axis=2)
+
+    altered_mask = diff_mag > 12.0
+    altered_pixels = int(np.sum(altered_mask))
+    total_pixels = w * h
+    divergence_pct = round((altered_pixels / max(total_pixels, 1)) * 100, 2)
+
+    # 2. Generate Heatmap
+    amp_diff = np.clip(diff_mag * 7.0, 0, 255).astype(np.uint8)
+    heatmap_rgb = np.zeros((h, w, 3), dtype=np.uint8)
+    norm = amp_diff.astype(np.float32) / 255.0
+
+    heatmap_rgb[:, :, 0] = np.clip(norm * 255 * 1.5 - 50, 0, 255).astype(np.uint8)  # Red
+    heatmap_rgb[:, :, 1] = np.clip(np.sin(norm * np.pi) * 255 * 1.2, 0, 255).astype(np.uint8)  # Green
+    heatmap_rgb[:, :, 2] = np.clip((1.0 - norm) * 200, 0, 255).astype(np.uint8)  # Cyan/Blue
+
+    blend = Image.blend(img_sus, Image.fromarray(heatmap_rgb), alpha=0.55)
+    buf = io.BytesIO()
+    blend.save(buf, format="JPEG", quality=85)
+    heatmap_b64 = "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode("utf-8")
+
+    # 3. Detect regions of interest
+    tile_size = max(16, min(w, h) // 10)
+    regions = []
+    for y0 in range(0, h, tile_size):
+        for x0 in range(0, w, tile_size):
+            tile_diff = diff_mag[y0:min(y0+tile_size, h), x0:min(x0+tile_size, w)]
+            mean_tile = float(np.mean(tile_diff))
+            if mean_tile > 18.0:
+                regions.append({
+                    "x": x0,
+                    "y": y0,
+                    "w": min(tile_size, w - x0),
+                    "h": min(tile_size, h - y0),
+                    "intensity": round(min(1.0, mean_tile / 100.0), 3),
+                    "verdict": "Synthetic Inpainting / Boundary Seam" if mean_tile > 35 else "Compression / Lighting Shift"
+                })
+
+    regions = sorted(regions, key=lambda r: r["intensity"], reverse=True)[:8]
+
+    if divergence_pct < 1.0:
+        verdict = "IDENTICAL / NO TAMPERING DETECTED"
+        verdict_status = "Pass"
+        summary = "Both images exhibit near-identical pixel telemetry. Minor variance is consistent with re-encoding noise."
+    elif divergence_pct < 14.0:
+        verdict = "LOCALIZED INPAINTING / SPLICING"
+        verdict_status = "Fail"
+        summary = f"Detected localized divergence affecting {divergence_pct}% of the frame. High frequency boundaries suggest selective object replacement or facial manipulation."
+    else:
+        verdict = "COMPREHENSIVE SYNTHESIS / MAJOR REPLACEMENT"
+        verdict_status = "Fail"
+        summary = f"Widespread structural departure ({divergence_pct}% altered). The suspect image differs substantially across macro spatial blocks."
+
+    return {
+        "dimensions": f"{w}x{h}",
+        "divergence_pct": divergence_pct,
+        "divergent_regions_count": len(regions),
+        "divergent_regions": regions,
+        "heatmap_base64": heatmap_b64,
+        "verdict": verdict,
+        "verdict_status": verdict_status,
+        "summary": summary
+    }
+
+
 # Rebuild model to resolve forward references
 ForensicImageAnalysisResponse.model_rebuild()

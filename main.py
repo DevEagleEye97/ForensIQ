@@ -13,6 +13,10 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Dict, Any
 
+import typing_extensions
+if not hasattr(typing_extensions, "sentinel"):
+    typing_extensions.sentinel = lambda name: object()
+
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles

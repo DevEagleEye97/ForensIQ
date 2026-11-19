@@ -7,6 +7,10 @@ import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import TermsPage from './pages/TermsPage';
 import NotFoundPage from './pages/NotFoundPage';
 import PagesHub from './pages/PagesHub';
+import ComparePage from './pages/ComparePage';
+import TemporalVideoPage from './pages/TemporalVideoPage';
+import VoiceAudioPage from './pages/VoiceAudioPage';
+import ThreatIntelPage from './pages/ThreatIntelPage';
 import CinematicLoader from './components/CinematicLoader';
 import MatrixBackground from './components/MatrixBackground';
 import SmoothCursor from './components/SmoothCursor';
@@ -26,6 +30,18 @@ function resolveRouteFromPath(rawPath: string): { view: View; page: Page } {
   }
   if (path === '/dashboard' || path === '/pages/dashboard') {
     return { view: 'app', page: 'dashboard' };
+  }
+  if (path === '/compare' || path === '/pages/compare') {
+    return { view: 'app', page: 'compare' };
+  }
+  if (path === '/video' || path === '/pages/video') {
+    return { view: 'app', page: 'video' };
+  }
+  if (path === '/audio' || path === '/pages/audio') {
+    return { view: 'app', page: 'audio' };
+  }
+  if (path === '/threat-intel' || path === '/threats' || path === '/intel' || path === '/pages/threat-intel') {
+    return { view: 'app', page: 'threat-intel' };
   }
   if (path === '/history' || path === '/pages/history' || path === '/vault') {
     return { view: 'app', page: 'history' };
@@ -124,6 +140,11 @@ export default function App() {
           {/* Main Page Routing */}
           <div className="flex-1 flex flex-col min-h-0">
             {page === 'dashboard' && <Dashboard />}
+
+            {page === 'compare' && <ComparePage />}
+            {page === 'video' && <TemporalVideoPage />}
+            {page === 'audio' && <VoiceAudioPage />}
+            {page === 'threat-intel' && <ThreatIntelPage />}
 
             {page === 'pages' && (
               <PagesHub onNavigate={navigateTo} onGoHome={goHome} />

@@ -17,6 +17,10 @@ Exercises all endpoints in the specification:
 import io
 import asyncio
 import html
+import typing_extensions
+if not hasattr(typing_extensions, "sentinel"):
+    typing_extensions.sentinel = lambda name: object()
+
 from PIL import Image
 from starlette.testclient import TestClient
 from main import app
@@ -251,8 +255,56 @@ def run_tests():
     assert "deepfake_classifier" in multi_data
     print("   [PASS] Multimodal cross-modal correlation endpoint operational.")
 
+    print(">>> 19. Testing POST /api/compare (Differential Forensics)...")
+    img2 = Image.new("RGB", (120, 120), color=(200, 100, 50))
+    buf2 = io.BytesIO()
+    img2.save(buf2, format="JPEG", quality=90)
+    jpeg_bytes2 = buf2.getvalue()
+
+    r = client.post(
+        "/api/compare",
+        files={
+            "reference_file": ("ref.jpg", jpeg_bytes, "image/jpeg"),
+            "suspect_file": ("suspect.jpg", jpeg_bytes2, "image/jpeg"),
+        }
+    )
+    assert r.status_code == 200
+    diff_data = r.json()
+    assert diff_data["status"] == "success"
+    assert "divergence_pct" in diff_data
+    assert "heatmap_base64" in diff_data and diff_data["heatmap_base64"].startswith("data:image/jpeg;base64,")
+    assert "verdict" in diff_data
+    assert "summary" in diff_data
+    print(f"   [PASS] Differential forensics verified: divergence={diff_data['divergence_pct']}%, verdict={diff_data['verdict']}")
+
+    print(">>> 20. Testing POST /api/chat (Forensic Analyst Assistant)...")
+    r = client.post(
+        "/api/chat",
+        json={
+            "message": "Explain what an ELA variance anomaly means in non-technical terms.",
+            "case_context": {"verdict": "Spliced / Edited", "tamper_probability": 40}
+        }
+    )
+    assert r.status_code == 200
+    chat_data = r.json()
+    assert "reply" in chat_data and len(chat_data["reply"]) > 20
+    assert "model" in chat_data
+    print("   [PASS] Forensic analyst chat assistant operational.")
+
+    print(">>> 21. Testing GET /api/threat-intel (Sourced Threat Intelligence)...")
+    r = client.get("/api/threat-intel")
+    assert r.status_code == 200
+    threat_data = r.json()
+    assert threat_data["status"] == "operational"
+    assert len(threat_data["metrics"]) >= 4
+    for m in threat_data["metrics"]:
+        assert "source" in m and len(m["source"]) > 3
+        assert "as_of" in m
+        assert "region" in m
+    print("   [PASS] Sourced threat intelligence feed verified (all metrics cited).")
+
     print("\n=======================================================")
-    print("ALL 18 TRUTHLENS FORENSIQ REGRESSION TESTS PASSED (100%)!")
+    print("ALL 21 TRUTHLENS FORENSIQ REGRESSION TESTS PASSED (100%)!")
     print("=======================================================")
 
 if __name__ == "__main__":

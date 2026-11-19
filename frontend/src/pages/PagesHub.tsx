@@ -3,7 +3,8 @@ import { motion } from 'framer-motion';
 import {
   LayoutDashboard, History, FileBarChart2, ScanLine,
   Settings, Shield, Lock, ExternalLink,
-  ArrowRight, Terminal, FileCode, Database
+  ArrowRight, Terminal, FileCode, Database,
+  GitCompare, Video, Mic, ShieldAlert
 } from 'lucide-react';
 import { type Page } from '../components/AppHeader';
 
@@ -37,6 +38,54 @@ const PAGE_REGISTRY: PageDescriptor[] = [
     color: 'text-cyan-400',
     borderColor: 'border-cyan-500/30',
     description: 'Multi-spectral image forensics analyzing 2D Laplacian spatial gradients, 90% JPEG ELA differentials, EXIF camera signatures, and Hugging Face ViT face-swap models.',
+  },
+  {
+    id: 'compare',
+    path: '/compare',
+    title: 'Differential Forensics',
+    subtitle: 'Split Slider & Divergence Heatmap',
+    category: 'Workbench Core',
+    icon: GitCompare,
+    status: 'ACTIVE',
+    color: 'text-cyan-300',
+    borderColor: 'border-cyan-400/40',
+    description: 'Upload reference (real) and suspect (fake) media side-by-side with an interactive split slider, per-pixel divergence heatmap, and tile-level AI explanations.',
+  },
+  {
+    id: 'video',
+    path: '/video',
+    title: 'Video Forensics',
+    subtitle: 'Temporal Inter-Frame Consistency',
+    category: 'Workbench Core',
+    icon: Video,
+    status: 'OPERATIONAL',
+    color: 'text-emerald-400',
+    borderColor: 'border-emerald-500/30',
+    description: 'Keyframe decomposition across 24 FPS timelines to flag optical flow warping, face boundary flickering, and deepfake blend artifacts.',
+  },
+  {
+    id: 'audio',
+    path: '/audio',
+    title: 'Audio Forensics',
+    subtitle: 'Voice Synthesis & ASV-Spoof',
+    category: 'Workbench Core',
+    icon: Mic,
+    status: 'OPERATIONAL',
+    color: 'text-amber-400',
+    borderColor: 'border-amber-500/30',
+    description: 'Acoustic waveform analysis inspecting synthetic breath-gap absence, high-frequency robotic rolloff, and spectral MFCC voice cloning fingerprints.',
+  },
+  {
+    id: 'threat-intel',
+    path: '/threat-intel',
+    title: 'Threat Intelligence',
+    subtitle: 'Sourced Global & Regional Cyber Data',
+    category: 'System & Specs',
+    icon: ShieldAlert,
+    status: 'ACTIVE',
+    color: 'text-rose-400',
+    borderColor: 'border-rose-500/30',
+    description: 'Verified cyber fraud and deepfake growth telemetry from NCRB 2023, WEF 2025, CyberPeace Foundation, and Europol with zero hallucination.',
   },
   {
     id: 'history',

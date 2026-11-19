@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import {
-  ShieldCheck, LayoutDashboard, ScanLine, History,
+  ShieldCheck, LayoutDashboard, History,
   Bell, Search, Menu, X, ChevronDown,
-  ExternalLink, FileBarChart2, Lock, Scale, Compass, Database, Github
+  ExternalLink, FileBarChart2, Lock, Scale, Compass, Database, Github,
+  GitCompare, Video, Mic, ShieldAlert
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../lib/utils';
@@ -10,6 +11,10 @@ import { supabase } from '../utils/supabase/client';
 
 export type Page =
   | 'dashboard'
+  | 'compare'
+  | 'video'
+  | 'audio'
+  | 'threat-intel'
   | 'scans'
   | 'history'
   | 'reports'
@@ -27,9 +32,12 @@ interface AppHeaderProps {
 
 const navItems = [
   { id: 'dashboard' as Page, label: 'Workbench', icon: LayoutDashboard },
+  { id: 'compare' as Page, label: 'Compare', icon: GitCompare },
+  { id: 'video' as Page, label: 'Video', icon: Video },
+  { id: 'audio' as Page, label: 'Audio', icon: Mic },
+  { id: 'threat-intel' as Page, label: 'Threat Intel', icon: ShieldAlert },
   { id: 'history' as Page, label: 'Evidence Vault', icon: History },
   { id: 'reports' as Page, label: 'Dossiers', icon: FileBarChart2 },
-  { id: 'scans' as Page, label: 'Live Telemetry', icon: ScanLine },
   { id: 'pages' as Page, label: 'Pages Hub', icon: Compass },
 ];
 
