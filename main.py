@@ -7,6 +7,7 @@ Framework: FastAPI (Asynchronous Python 3.12)
 
 import os
 import time
+import secrets
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -117,7 +118,7 @@ app.add_middleware(
         "http://localhost:3000",
         "http://127.0.0.1:3000",
     ],
-    allow_origin_regex=r"^https://.*(\.pages\.dev|\.vercel\.app)$",
+    allow_origin_regex=r"^https://[a-zA-Z0-9-]+\.(pages\.dev|vercel\.app)$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -172,7 +173,7 @@ async def security_api_key_guard(request: Request, call_next):
         expected_key = os.getenv("FORENSIQ_API_KEY", "").strip()
         client_key = request.headers.get("X-API-Key", "").strip()
 
-        if not expected_key or client_key != expected_key:
+        if not expected_key or not secrets.compare_digest(client_key, expected_key):
             logger.warning("[SECURITY] Unauthorized API request to %s rejected.", path)
             return JSONResponse(
                 status_code=status.HTTP_401_UNAUTHORIZED,

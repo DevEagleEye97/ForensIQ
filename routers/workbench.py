@@ -549,6 +549,15 @@ async def analyze_multimodal_evidence(
     """
     file_bytes = await _read_file_with_limit(file, MAX_FILE_SIZE_BYTES)
     _guard_image_dimensions(file_bytes)
+
+    kind = filetype.guess(file_bytes)
+    if not kind or kind.mime not in ("image/jpeg", "image/png"):
+        detected = kind.mime if kind else "unknown / raw bytes"
+        logger.warning("[INGEST/MULTIMODAL] Unsupported magic byte signature: %s", detected)
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail=f"Unsupported Media Type: Allowed image/jpeg and image/png. Detected: {detected}.",
+        )
     sha256_hex = hashlib.sha256(file_bytes).hexdigest()
     b64_img = base64.b64encode(file_bytes).decode("utf-8")
 
