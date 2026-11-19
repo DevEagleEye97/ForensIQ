@@ -117,9 +117,11 @@ async def query_openrouter_vision(
     data_uri = f"data:{mime_type};base64,{b64_img}"
 
     # OpenRouter Model Hierarchy (max 2 models)
-    primary_model = os.getenv("OPENROUTER_MODEL", "nvidia/nemotron-nano-12b-v2-vl:free").strip()
+    primary_model = os.getenv("OPENROUTER_MODEL", "nvidia/nemotron-3.5-super-vl").strip()
     fallback_pool = [
         primary_model,
+        "nvidia/nemotron-3.5-super-vl",
+        "nvidia/nemotron-nano-12b-v2-vl:free",
         "meta-llama/llama-3.2-11b-vision-instruct:free"
     ]
     # Deduplicate while preserving priority order

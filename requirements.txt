@@ -1,24 +1,28 @@
 # --- Web Server & Async Framework ---
 fastapi==0.115.4             # High-performance async REST framework
 uvicorn[standard]==0.32.0    # Lightning-fast ASGI web server
-python-multipart==0.0.17     # Mandatory for handling binary file uploads (FormData)
+python-multipart==0.0.31     # Mandatory for handling binary file uploads (FormData) - CVE fixes
 httpx==0.27.2                # Modern async HTTP client for HF and OpenRouter APIs
 
 # --- Forensic Image Parsing & Math ---
-Pillow==10.4.0               # Essential image manipulations and local ELA generation
+Pillow==13.0.0               # Essential image manipulations and local ELA generation - CVE fixes
 numpy==1.26.4                # Fast pixel array transformations and mathematics
 
 # --- File Triage & Deep Metadata Forensics ---
 exifread==3.0.0              # Pure Python library to read camera sensor and software headers
 filetype==1.2.0              # Detects true MIME type from file magic bytes (stops extension spoofing)
-markitdown>=0.1.9            # Microsoft MarkItDown: multi-format document to Markdown converter
+markitdown==0.1.9            # Microsoft MarkItDown: multi-format document to Markdown converter
 
 # --- Database & Evidence Vault ---
-aiosqlite>=0.20.0            # Async SQLite driver for zero-blocking queries
-sqlalchemy>=2.0.0            # SQL toolkit & ORM for parameterized secure queries
-greenlet>=3.0.0              # Required for SQLAlchemy asyncio extension
+aiosqlite==0.20.0            # Async SQLite driver for zero-blocking queries
+asyncpg>=0.29.0              # Async PostgreSQL driver for Supabase
+sqlalchemy==2.0.34           # SQL toolkit & ORM for parameterized secure queries
+greenlet==3.0.3              # Required for SQLAlchemy asyncio extension
 
 # --- Security, Rate Limiting & Reliability ---
-slowapi>=0.1.10              # IP-based rate limiting
-sentry-sdk[fastapi]>=2.75.0   # Error tracking & observability
-python-dotenv==1.0.1         # Secure loading of API keys from a local .env file
+slowapi==0.1.10              # IP-based rate limiting
+sentry-sdk[fastapi]==2.18.0  # Error tracking & observability
+python-dotenv==1.2.2         # Secure loading of API keys from a local .env file - CVE fixes
+
+# --- Type Stubs ---
+typing-extensions==4.12.2    # Backported typing features

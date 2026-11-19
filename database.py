@@ -15,10 +15,18 @@ logger = logging.getLogger("forensiq.database")
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./forensiq_vault.db")
 
+# Normalize PostgreSQL URLs for SQLAlchemy asyncpg driver if provided by Supabase
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
+elif DATABASE_URL.startswith("postgresql://") and not DATABASE_URL.startswith("postgresql+asyncpg://"):
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
+
+is_sqlite = "sqlite" in DATABASE_URL
+
 engine = create_async_engine(
     DATABASE_URL,
     echo=False,
-    connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
+    connect_args={"check_same_thread": False} if is_sqlite else {}
 )
 
 AsyncSessionLocal = async_sessionmaker(
