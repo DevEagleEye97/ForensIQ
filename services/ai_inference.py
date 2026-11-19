@@ -15,7 +15,7 @@ import httpx
 logger = logging.getLogger("forensiq.services.ai_inference")
 
 HF_MODEL_NAME = "prithivMLmods/Deep-Fake-Detector-v2-Model"
-HF_ENDPOINT_URL = f"https://api-inference.huggingface.co/models/{HF_MODEL_NAME}"
+HF_ENDPOINT_URL = f"https://router.huggingface.co/hf-inference/models/{HF_MODEL_NAME}"
 OPENROUTER_ENDPOINT_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 
@@ -84,12 +84,11 @@ async def query_openrouter_vision(
     b64_img = base64.b64encode(image_bytes).decode("utf-8")
     data_uri = f"data:{mime_type};base64,{b64_img}"
 
-    # OpenRouter Model Hierarchy (Priority: Configured -> NVIDIA Nemotron 3.5 Super VL -> Fallbacks)
-    primary_model = os.getenv("OPENROUTER_MODEL", "nvidia/nemotron-3.5-super-vl").strip()
+    # OpenRouter Model Hierarchy (Priority: Configured -> NVIDIA Nemotron Nano 12B VL -> Fallbacks)
+    primary_model = os.getenv("OPENROUTER_MODEL", "nvidia/nemotron-nano-12b-v2-vl:free").strip()
     fallback_pool = [
         primary_model,
-        "nvidia/nemotron-3.5-super-vl",
-        "nvidia/nemotron-3.5-super-vl:free",
+        "nvidia/nemotron-nano-12b-v2-vl:free",
         "meta-llama/llama-3.2-11b-vision-instruct:free",
         "qwen/qwen2.5-vl-72b-instruct:free"
     ]

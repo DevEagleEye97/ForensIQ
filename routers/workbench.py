@@ -3,6 +3,7 @@ ForensIQ Workbench Router
 Handler: /api/analyze (Multipart Ingestion & 3-Tier Multi-Modal Forensic Analysis)
 """
 
+import asyncio
 import os
 import json
 import uuid
@@ -104,11 +105,12 @@ async def analyze_evidence(
     )
 
     # --------------------------------------------------------------------------
-    # Steps 5 & 6: Run Tier 2 & Tier 3 AI Inference via Async HTTP Client
+    # Steps 5 & 6: Run Tier 2 & Tier 3 AI Inference CONCURRENTLY via Async HTTP Client
     # --------------------------------------------------------------------------
     async with httpx.AsyncClient() as client:
-        hf_score, hf_obs = await query_huggingface_classifier(client, file_bytes, mime_type)
-        t3_score, t3_verdict, t3_obs = await query_openrouter_vision(client, file_bytes, mime_type)
+        hf_task = query_huggingface_classifier(client, file_bytes, mime_type)
+        t3_task = query_openrouter_vision(client, file_bytes, mime_type)
+        (hf_score, hf_obs), (t3_score, t3_verdict, t3_obs) = await asyncio.gather(hf_task, t3_task)
 
     # --------------------------------------------------------------------------
     # Consensus Engine & Resilience / Fail-Safe Protocols
@@ -296,10 +298,11 @@ async def analyze_image_evidence(
     # ── Step 4: Metadata Integrity ────────────────────────────────────────────
     meta_status, metadata_contract, meta_obs = run_metadata_integrity(file_bytes, mime_type, file_size)
 
-    # ── Steps 5a & 5b: External AI (HF + OpenRouter) ─────────────────────────
+    # ── Steps 5a & 5b: External AI (HF + OpenRouter) CONCURRENTLY ──────────────────
     async with httpx.AsyncClient() as client:
-        hf_score, hf_obs = await query_huggingface_classifier(client, file_bytes, mime_type)
-        t3_score, t3_verdict, t3_obs = await query_openrouter_vision(client, file_bytes, mime_type)
+        hf_task = query_huggingface_classifier(client, file_bytes, mime_type)
+        t3_task = query_openrouter_vision(client, file_bytes, mime_type)
+        (hf_score, hf_obs), (t3_score, t3_verdict, t3_obs) = await asyncio.gather(hf_task, t3_task)
 
     # ── Check 4: GAN Fingerprint mapping ─────────────────────────────────────
     gan_status, gan_obs = evaluate_gan_fingerprint(hf_score, t3_score)
