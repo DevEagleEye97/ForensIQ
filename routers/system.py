@@ -10,13 +10,14 @@ import logging
 from datetime import datetime, timezone
 from typing import Dict, Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
 from database import get_db, DATABASE_URL
 from models import EvidenceVault, SystemStatusResponse
 from services.ai_inference import measure_api_health
+from scripts.backup_vault import run_vault_backup
 
 logger = logging.getLogger("forensiq.routers.system")
 router = APIRouter(prefix="/api/system", tags=["System Telemetry"])
@@ -60,3 +61,26 @@ async def get_system_status(db: AsyncSession = Depends(get_db)):
         api_latencies=api_latencies,
         resilience_mode="ACTIVE (Zero-Crash Heuristic Fail-Safe Engaged)"
     )
+
+
+
+@router.post("/backup", tags=["System Administration"])
+async def trigger_vault_backup(
+    x_admin_key: str = Header(None, alias="X-Admin-Key")
+) -> Dict[str, Any]:
+    """
+    Triggers an instant, timestamped snapshot of the SQLite Evidence Vault.
+    Protected by X-Admin-Key if ADMIN_SECRET_KEY is configured.
+    """
+    required_key = os.getenv("ADMIN_SECRET_KEY")
+    if required_key and required_key.strip():
+        if x_admin_key != required_key.strip():
+            logger.warning("[SYSTEM/BACKUP] Unauthorized backup attempt rejected.")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Unauthorized: Invalid or missing X-Admin-Key header."
+            )
+
+    result = run_vault_backup()
+    logger.info("[SYSTEM/BACKUP] Vault backup executed: %s", result.get("backup_file"))
+    return result

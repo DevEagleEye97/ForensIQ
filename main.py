@@ -12,10 +12,24 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Dict, Any
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, status
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import uvicorn
+
+# SlowAPI Rate Limiting
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+
+# Optional Sentry Error Tracking
+try:
+    import sentry_sdk
+    SENTRY_AVAILABLE = True
+except ImportError:
+    SENTRY_AVAILABLE = False
 
 # Load local environment configuration
 load_dotenv()
@@ -28,10 +42,25 @@ logging.basicConfig(
 )
 logger = logging.getLogger("forensiq.core")
 
+# Sentry initialization if DSN configured
+sentry_dsn = os.getenv("SENTRY_DSN")
+if SENTRY_AVAILABLE and sentry_dsn and sentry_dsn.strip() not in ("", "your-sentry-dsn"):
+    sentry_sdk.init(
+        dsn=sentry_dsn.strip(),
+        traces_sample_rate=0.1,
+        environment=os.getenv("ENVIRONMENT", "production"),
+    )
+    logger.info("[SENTRY] Error tracking initialized.")
+else:
+    logger.info("[SENTRY] DSN not configured. Local logging active.")
+
 from database import init_db
 from routers import workbench, vault, report, system
 
 SERVER_START_TIME = time.time()
+
+# Rate Limiter setup (key by remote IP)
+limiter = Limiter(key_func=get_remote_address, default_limits=["120/minute"])
 
 
 @asynccontextmanager
@@ -45,11 +74,24 @@ async def lifespan(app: FastAPI):
     logger.info(">>> VIBE: Palantir Gotham & Cisco Secure Endpoint Minimalist <<<")
     logger.info("=" * 72)
 
-    # Initialize SQLite evidence vault schema
     await init_db()
     logger.info("[STARTUP] Asynchronous SQLite Evidence Vault operational.")
     yield
     logger.info("[SHUTDOWN] Terminating ForensIQ engine cleanly.")
+
+
+# Custom 429 JSON response handler
+async def custom_rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded):
+    logger.warning("[SECURITY] Rate limit exceeded from IP: %s on %s", request.client.host if request.client else "unknown", request.url.path)
+    return JSONResponse(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        content={
+            "error": "Rate limit exceeded",
+            "detail": f"Too many requests from this IP ({exc.detail}). Please retry in 60 seconds.",
+            "status_code": 429,
+            "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        },
+    )
 
 
 # FastAPI Application Instance
@@ -61,6 +103,11 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc"
 )
+
+# Attach limiter to app state and register custom 429 handler
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, custom_rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
 
 # Cross-Origin Resource Sharing (CORS) Configuration
 app.add_middleware(
@@ -74,6 +121,40 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Security / API Key Middleware (Row-Level / Node Protection)
+@app.middleware("http")
+async def security_api_key_guard(request: Request, call_next):
+    """
+    Guards /api/* endpoints if API_KEY_REQUIRED=true in environment.
+    Exempts public endpoints: /health, /docs, /openapi.json, /redoc.
+    """
+    path = request.url.path
+    is_api = path.startswith("/api/")
+    is_exempt = path in ("/health", "/docs", "/openapi.json", "/redoc")
+
+    api_key_required = os.getenv("API_KEY_REQUIRED", "false").lower() in ("true", "1", "yes")
+
+    if api_key_required and is_api and not is_exempt:
+        expected_key = os.getenv("FORENSIQ_API_KEY", "").strip()
+        client_key = request.headers.get("X-API-Key", "").strip()
+
+        if not expected_key or client_key != expected_key:
+            logger.warning("[SECURITY] Unauthorized API request to %s rejected.", path)
+            return JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={
+                    "error": "Unauthorized",
+                    "detail": "Invalid or missing X-API-Key header.",
+                    "status_code": 401,
+                    "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+                },
+            )
+
+    response = await call_next(request)
+    return response
+
 
 # Include Subsystem Routers
 app.include_router(workbench.router)
@@ -99,14 +180,21 @@ async def root_health_check() -> Dict[str, Any]:
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
         "credentials": {
             "huggingface_configured": hf_ok,
-            "openrouter_configured": or_ok
+            "openrouter_configured": or_ok,
+        },
+        "security": {
+            "rate_limiting_active": True,
+            "api_key_enforced": os.getenv("API_KEY_REQUIRED", "false").lower() in ("true", "1", "yes"),
+            "sentry_active": bool(SENTRY_AVAILABLE and sentry_dsn),
         },
         "endpoints": {
             "workbench_analyze": "POST /api/analyze",
+            "workbench_analyze_image": "POST /api/analyze/image",
             "evidence_vault": "GET /api/vault",
             "case_lookup": "GET /api/vault/{case_id}",
             "report_export": "GET /api/report/{case_id}/export",
-            "system_status": "GET /api/system/status"
+            "system_status": "GET /api/system/status",
+            "system_backup": "POST /api/system/backup",
         }
     }
 
