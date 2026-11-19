@@ -65,7 +65,7 @@ async def list_vault_records(
                 exif_software=r.exif_software,
                 camera_make=r.camera_make,
                 anomalies=anomalies,
-                ela_base64_preview=r.ela_base64_preview,
+                ela_base64_preview=None,  # Omit large ELA preview from list view
                 timestamp_utc=r.timestamp_utc.isoformat() if r.timestamp_utc else None
             )
         )

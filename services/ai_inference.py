@@ -17,6 +17,35 @@ logger = logging.getLogger("forensiq.services.ai_inference")
 HF_MODEL_NAME = "prithivMLmods/Deep-Fake-Detector-v2-Model"
 HF_ENDPOINT_URL = f"https://router.huggingface.co/hf-inference/models/{HF_MODEL_NAME}"
 OPENROUTER_ENDPOINT_URL = "https://openrouter.ai/api/v1/chat/completions"
+OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models"
+
+# Validated model IDs (populated at startup)
+VALIDATED_OPENROUTER_MODELS: set = set()
+MODEL_VALIDATION_DONE = False
+
+
+async def validate_openrouter_models(api_key: str) -> None:
+    """Validate configured OpenRouter model IDs against the models endpoint at startup."""
+    global VALIDATED_OPENROUTER_MODELS, MODEL_VALIDATION_DONE
+    if MODEL_VALIDATION_DONE:
+        return
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(
+                OPENROUTER_MODELS_URL,
+                headers={"Authorization": f"Bearer {api_key.strip()}"}
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                VALIDATED_OPENROUTER_MODELS = {m["id"] for m in data.get("data", [])}
+                logger.info("[TIER3] Validated %d OpenRouter models", len(VALIDATED_OPENROUTER_MODELS))
+            else:
+                logger.warning("[TIER3] OpenRouter models endpoint returned %s", resp.status_code)
+    except Exception as exc:
+        logger.warning("[TIER3] Failed to validate OpenRouter models: %s", exc)
+    finally:
+        MODEL_VALIDATION_DONE = True
 
 
 async def query_huggingface_classifier(
@@ -72,28 +101,37 @@ async def query_openrouter_vision(
 ) -> Tuple[Optional[int], Optional[str], List[str]]:
     """
     Tier 3: Multi-Modal Reasoning via OpenRouter Vision API.
-    Primary: meta-llama/llama-3.2-11b-vision-instruct:free
-    Fallback: qwen/qwen2.5-vl-72b-instruct:free
-    Timeout: 5.0s maximum.
+    Primary: nvidia/nemotron-nano-12b-v2-vl:free
+    Fallback: meta-llama/llama-3.2-11b-vision-instruct:free
+    Timeout: 8.0s maximum per model. Max 2 models attempted.
     """
     openrouter_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENROUTER_TOKEN")
     if not openrouter_key or openrouter_key.strip() in ("", "your-key", "your_openrouter_api_key_here"):
         logger.warning("[TIER3] OpenRouter API key not configured. Proceeding to fallback.")
         return None, None, []
 
+    # Validate models at startup (once)
+    await validate_openrouter_models(openrouter_key)
+
     b64_img = base64.b64encode(image_bytes).decode("utf-8")
     data_uri = f"data:{mime_type};base64,{b64_img}"
 
-    # OpenRouter Model Hierarchy (Priority: Configured -> NVIDIA Nemotron Nano 12B VL -> Fallbacks)
+    # OpenRouter Model Hierarchy (max 2 models)
     primary_model = os.getenv("OPENROUTER_MODEL", "nvidia/nemotron-nano-12b-v2-vl:free").strip()
     fallback_pool = [
         primary_model,
-        "nvidia/nemotron-nano-12b-v2-vl:free",
-        "meta-llama/llama-3.2-11b-vision-instruct:free",
-        "qwen/qwen2.5-vl-72b-instruct:free"
+        "meta-llama/llama-3.2-11b-vision-instruct:free"
     ]
     # Deduplicate while preserving priority order
     models = list(dict.fromkeys([m for m in fallback_pool if m]))
+
+    # Filter to only validated models (if validation succeeded)
+    if VALIDATED_OPENROUTER_MODELS:
+        models = [m for m in models if m in VALIDATED_OPENROUTER_MODELS]
+        if not models:
+            logger.warning("[TIER3] No configured models found in validated OpenRouter model list")
+            # Fall through to try anyway - validation might be stale
+            models = list(dict.fromkeys([m for m in fallback_pool if m]))
 
     prompt = (
         "You are an Elite Forensic Vision Specialist. Conduct a granular, objective forensic evaluation on this image.\n"
@@ -116,7 +154,7 @@ async def query_openrouter_vision(
         "X-Title": "ForensIQ Autonomous Platform"
     }
 
-    for model in models:
+    for model in models[:2]:  # Cap at 2 models max
         payload = {
             "model": model,
             "messages": [
@@ -136,7 +174,7 @@ async def query_openrouter_vision(
                 OPENROUTER_ENDPOINT_URL,
                 headers=headers,
                 json=payload,
-                timeout=12.0
+                timeout=8.0
             )
             if resp.status_code == 200:
                 data = resp.json()
@@ -153,7 +191,7 @@ async def query_openrouter_vision(
             else:
                 logger.warning("[TIER3] OpenRouter model %s returned status %s", model, resp.status_code)
         except httpx.TimeoutException:
-            logger.warning("[TIER3] OpenRouter model %s timed out (>12.0s)", model)
+            logger.warning("[TIER3] OpenRouter model %s timed out (>8.0s)", model)
         except Exception as exc:
             logger.warning("[TIER3] OpenRouter call to %s failed: %s", model, exc)
             continue

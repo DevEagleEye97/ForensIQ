@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import {
   ShieldCheck, LayoutDashboard, ScanLine, History,
   Bell, Search, Menu, X, ChevronDown,
-  ExternalLink, FileBarChart2, Microscope, Lock, Scale
+  ExternalLink, FileBarChart2, Lock, Scale
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../lib/utils';
@@ -13,7 +13,6 @@ export type Page =
   | 'history'
   | 'reports'
   | 'settings'
-  | 'forensic-analysis'
   | 'privacy'
   | 'terms'
   | 'not-found';
@@ -26,7 +25,6 @@ interface AppHeaderProps {
 
 const navItems = [
   { id: 'dashboard' as Page, label: 'Workbench', icon: LayoutDashboard },
-  { id: 'forensic-analysis' as Page, label: 'Case Analysis', icon: Microscope },
   { id: 'history' as Page, label: 'Evidence Vault', icon: History },
   { id: 'reports' as Page, label: 'Dossiers', icon: FileBarChart2 },
   { id: 'scans' as Page, label: 'Live Telemetry', icon: ScanLine },

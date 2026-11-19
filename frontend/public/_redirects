@@ -1,0 +1,9 @@
+# Cloudflare Pages proxy rules for ForensIQ backend on Render
+# These rules MUST come before the SPA fallback
+
+# Proxy API calls to Render backend (no CORS needed)
+/api/*  https://YOUR-RENDER-URL/api/:splat  200
+/health https://YOUR-RENDER-URL/health     200
+
+# SPA fallback for React Router
+/*      /index.html                        200

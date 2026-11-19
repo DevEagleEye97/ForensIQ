@@ -4,7 +4,7 @@ import {
   CheckCircle2, AlertTriangle, XCircle, ScanLine, Hash,
   Image as ImageIcon, RefreshCw, ChevronRight,
   Fingerprint, Radio, Database, Shield, Eye, AlertCircle,
-  FileText, Sparkles, Check, X
+  FileText, Sparkles, Check, X, ExternalLink
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDropzone } from 'react-dropzone';
@@ -40,12 +40,20 @@ export interface BackendAnalysisResult {
   anomalies: string[];
   classificationModel: string;
   fallbackMode?: boolean;
+  signals?: {
+    spatial_patch_std?: number;
+    ela_variance_pct?: number;
+    gan_effective_pct?: number | null;
+  };
 }
 
 interface SystemStatus {
   status: string;
   database: {
     total_cases: number;
+    image_cases_count: number;
+    flagged_cases_count: number;
+    avg_tamper_probability: number;
   };
   archived_cases_count: number;
 }
@@ -59,19 +67,10 @@ const statusMeta: Record<string, { icon: typeof CheckCircle2; color: string; bad
   Fail: { icon: XCircle, color: 'text-rose-400', badge: 'bg-rose-500/10 text-rose-400 border-rose-500/20', label: 'Fail' },
 };
 
-const analysisStages = [
-  'Zero-Trust Ingestion & SHA-256 Fingerprint...',
-  'Computing 2D Laplacian Spatial Gradient Variance...',
-  'Executing In-Memory Error Level Analysis (ELA 90%)...',
-  'Extracting Hardware Sensor & EXIF Provenance...',
-  'Consulting Neural ViT & Multimodal Reasoning Ensemble...',
-];
-
 export default function Dashboard() {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
-  const [analysisStageIndex, setAnalysisStageIndex] = useState(0);
   const [analysisResult, setAnalysisResult] = useState<BackendAnalysisResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'rgb' | 'ela'>('rgb');
@@ -89,12 +88,13 @@ export default function Dashboard() {
         const res = await fetch('/api/system/status');
         if (res.ok) {
           const data: SystemStatus = await res.json();
-          const total = data.archived_cases_count || data.database?.total_cases || 0;
-          const deepfakes = data.database?.total_cases ? Math.floor(total * 0.13) : 0; // approximate from vault
+          const total = data.database?.image_cases_count ?? data.archived_cases_count ?? 0;
+          const flagged = data.database?.flagged_cases_count ?? 0;
+          const avgTamper = data.database?.avg_tamper_probability ?? 0;
           setSystemStats({
             scansToday: String(total),
-            deepfakesFound: String(deepfakes),
-            avgTrustScore: total > 0 ? `${Math.max(70, 100 - deepfakes * 2)}%` : '0%',
+            deepfakesFound: String(flagged),
+            avgTrustScore: total > 0 ? `${Math.round(100 - avgTamper)}%` : '0%',
             dbRecords: String(total),
           });
         }
@@ -104,19 +104,6 @@ export default function Dashboard() {
     }
     fetchSystemStats();
   }, []);
-
-  // Cycle through loading stages during analysis
-  useEffect(() => {
-    let interval: ReturnType<typeof setInterval>;
-    if (analyzing) {
-      interval = setInterval(() => {
-        setAnalysisStageIndex((prev) => (prev + 1) % analysisStages.length);
-      }, 700);
-    } else {
-      setAnalysisStageIndex(0);
-    }
-    return () => clearInterval(interval);
-  }, [analyzing]);
 
   const executeAnalysis = async (targetFile: File) => {
     setErrorMessage(null);
@@ -246,19 +233,33 @@ export default function Dashboard() {
   };
 
   const anomalyChartData = analysisResult
-    ? [
-        { name: 'Spatial Diff', score: Math.round(analysisResult.checks.spatialArtifact === 'Fail' ? 88 : analysisResult.checks.spatialArtifact === 'Warn' ? 48 : 12) },
-        { name: 'ELA Residual', score: Math.round(analysisResult.checks.frequencyAnomaly === 'Fail' ? 82 : analysisResult.checks.frequencyAnomaly === 'Warn' ? 52 : 18) },
-        { name: 'Sensor Provenance', score: Math.round(analysisResult.checks.metadataIntegrity === 'Fail' ? 90 : analysisResult.checks.metadataIntegrity === 'Warn' ? 60 : 10) },
-        { name: 'GAN Fingerprint', score: Math.round(analysisResult.checks.ganFingerprint === 'Fail' ? 94 : analysisResult.checks.ganFingerprint === 'Warn' ? 55 : 15) },
-        { name: 'Overall Tamper', score: analysisResult.tamperProbability },
-      ]
+    ? (() => {
+        // Use real signals from backend when available
+        const signals = analysisResult.signals;
+        if (signals && typeof signals.spatial_patch_std === 'number' && typeof signals.ela_variance_pct === 'number') {
+          return [
+            { name: 'Spatial Patch Std', score: Math.min(100, Math.round(signals.spatial_patch_std * 2)) },
+            { name: 'ELA Variance %', score: Math.min(100, Math.round(signals.ela_variance_pct * 5)) },
+            { name: 'GAN Effective %', score: signals.gan_effective_pct ?? 0 },
+            { name: 'Overall Tamper', score: analysisResult.tamperProbability },
+          ];
+        }
+        // Fallback: categorical Pass/Warn/Fail mapped to representative values
+        const statusToScore = { Pass: 15, Warn: 50, Fail: 85 } as const;
+        return [
+          { name: 'Spatial Artifact', score: statusToScore[analysisResult.checks.spatialArtifact] },
+          { name: 'Frequency Anomaly', score: statusToScore[analysisResult.checks.frequencyAnomaly] },
+          { name: 'Metadata Integrity', score: statusToScore[analysisResult.checks.metadataIntegrity] },
+          { name: 'GAN Fingerprint', score: statusToScore[analysisResult.checks.ganFingerprint] },
+          { name: 'Overall Tamper', score: analysisResult.tamperProbability },
+        ];
+      })()
     : [
-        { name: 'Spatial Diff', score: 14 },
-        { name: 'ELA Residual', score: 28 },
-        { name: 'Sensor Provenance', score: 10 },
-        { name: 'GAN Fingerprint', score: 22 },
-        { name: 'Overall Tamper', score: 18 },
+        { name: 'Spatial Artifact', score: 0 },
+        { name: 'Frequency Anomaly', score: 0 },
+        { name: 'Metadata Integrity', score: 0 },
+        { name: 'GAN Fingerprint', score: 0 },
+        { name: 'Overall Tamper', score: 0 },
       ];
 
   return (
@@ -356,9 +357,9 @@ export default function Dashboard() {
             >
               <input {...getInputProps()} disabled={analyzing} />
 
-              <AnimatePresence mode="wait">
+<AnimatePresence mode="wait">
                 {analyzing ? (
-                  /* Loading State */
+                  /* Loading State - Honest indicator */
                   <motion.div
                     key="analyzing"
                     initial={{ opacity: 0 }}
@@ -375,10 +376,10 @@ export default function Dashboard() {
 
                     <div className="text-center space-y-1.5 w-full">
                       <p className="text-sm font-semibold text-slate-100 font-mono">
-                        Multi-Tier Autonomous Ingestion Active
+                        Forensic Analysis In Progress
                       </p>
                       <p className="text-xs text-indigo-300 font-mono animate-pulse">
-                        &gt; {analysisStages[analysisStageIndex]}
+                        Analyzing...
                       </p>
                     </div>
 
@@ -391,7 +392,7 @@ export default function Dashboard() {
                       />
                     </div>
                     <span className="text-[10px] font-mono text-slate-500">
-                      Sub-15ms Local In-Memory Diagnostics + Neural Consensus
+                      In-memory ELA + parallel AI inference
                     </span>
                   </motion.div>
                 ) : analysisResult ? (
@@ -792,6 +793,15 @@ export default function Dashboard() {
                 >
                   <FileText className="w-4 h-4" />
                   Export NIST Forensic Certificate (Markdown)
+                </a>
+                <a
+                  href={`/api/report/${analysisResult.case_id}/export?format=html`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-all min-h-[44px] shadow-lg shadow-emerald-900/20"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  Open HTML Metadata Certificate
                 </a>
               </div>
             )}

@@ -37,9 +37,33 @@ async def get_system_status(db: AsyncSession = Depends(get_db)):
     # Check database status & record count
     db_status = "HEALTHY"
     vault_records_count = 0
+    image_cases_count = 0
+    flagged_cases_count = 0
+    avg_tamper_probability = 0.0
     try:
         stmt = select(func.count(EvidenceVault.case_id))
         vault_records_count = (await db.execute(stmt)).scalar() or 0
+
+        # Image cases only (exclude documentary evidence)
+        stmt_img = select(func.count(EvidenceVault.case_id)).where(
+            EvidenceVault.mime_type.in_(["image/jpeg", "image/png"])
+        )
+        image_cases_count = (await db.execute(stmt_img)).scalar() or 0
+
+        # Flagged cases: verdict in Spliced/AI-Generated (exclude "Documentary Evidence Indexed")
+        stmt_flagged = select(func.count(EvidenceVault.case_id)).where(
+            EvidenceVault.verdict.in_(["Likely AI-Generated", "Spliced / Edited"])
+        )
+        flagged_cases_count = (await db.execute(stmt_flagged)).scalar() or 0
+
+        # Average tamper probability for image verdicts only
+        stmt_avg = select(func.avg(EvidenceVault.tamper_probability)).where(
+            EvidenceVault.mime_type.in_(["image/jpeg", "image/png"]),
+            EvidenceVault.verdict.in_(["Likely Authentic", "Likely AI-Generated", "Spliced / Edited"])
+        )
+        avg_tamper = (await db.execute(stmt_avg)).scalar()
+        if avg_tamper is not None:
+            avg_tamper_probability = round(float(avg_tamper), 1)
     except Exception as exc:
         logger.error("[SYSTEM] Database query failed: %s", exc)
         db_status = f"DEGRADED ({str(exc)})"
@@ -56,7 +80,10 @@ async def get_system_status(db: AsyncSession = Depends(get_db)):
             "provider": "SQLite (aiosqlite asynchronous driver)",
             "connection_string": DATABASE_URL.split("?")[0],
             "status": db_status,
-            "archived_cases_count": vault_records_count
+            "archived_cases_count": vault_records_count,
+            "image_cases_count": image_cases_count,
+            "flagged_cases_count": flagged_cases_count,
+            "avg_tamper_probability": avg_tamper_probability
         },
         api_latencies=api_latencies,
         resilience_mode="ACTIVE (Zero-Crash Heuristic Fail-Safe Engaged)"

@@ -19,7 +19,7 @@ import base64
 import hashlib
 import logging
 from datetime import datetime, timezone
-from typing import Dict, List, Literal, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
 import exifread
 import filetype
@@ -27,6 +27,7 @@ import numpy as np
 from PIL import Image, ImageChops, ImageFilter
 from fastapi import HTTPException, status
 from pydantic import BaseModel, Field, ConfigDict
+from starlette.concurrency import run_in_threadpool
 
 logger = logging.getLogger("forensiq.services.forensics_engine")
 
@@ -79,6 +80,7 @@ class ForensicImageAnalysisResponse(BaseModel):
     anomalies: List[str]
     classificationModel: str
     fallbackMode: bool = False       # True when external APIs were unavailable
+    signals: Optional[Dict[str, Any]] = None  # Optional real measured numbers
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -192,6 +194,7 @@ def run_spatial_artifact_scan(image_bytes: bytes) -> Tuple[CheckStatus, float, L
 def run_frequency_anomaly_ela(
     image_bytes: bytes,
     quality: int = 90,
+    mime_type: str = "image/jpeg",
 ) -> Tuple[CheckStatus, float, str, str, List[str]]:
     """
     Methodology: ELA Compression Differential.
@@ -205,6 +208,9 @@ def run_frequency_anomaly_ela(
       - ELA variance > 15%  → Fail  (localized high-frequency discrepancies → pasted elements)
       - ELA variance > 8%   → Warn  (moderate differential)
       - Otherwise            → Pass
+
+    For PNG (no JPEG compression history): returns Warn with observation,
+    excludes ELA signal from consensus scoring.
     """
     observations: List[str] = []
     ela_base64 = ""
@@ -219,6 +225,40 @@ def run_frequency_anomaly_ela(
             detail=f"Malformed image binary stream: {str(exc)}"
         )
 
+    # PNG has no JPEG compression history — ELA is inconclusive
+    if mime_type == "image/png":
+        # Still generate a visual ELA for reference (recompress as JPEG)
+        try:
+            buffer = io.BytesIO()
+            orig.save(buffer, format="JPEG", quality=quality)
+            buffer.seek(0)
+            resaved = Image.open(buffer).convert("RGB")
+            diff = ImageChops.difference(orig, resaved)
+            extrema = diff.getextrema()
+            try:
+                max_diff = max(
+                    (e[1] if isinstance(e, tuple) else e)
+                    for e in (extrema if isinstance(extrema, tuple) else (extrema,))
+                )
+            except Exception:
+                max_diff = 1
+            max_diff = max_diff or 1
+            scale = 255.0 / max_diff
+            ela_image = Image.eval(diff, lambda px: int(min(255, px * scale)))
+            ela_buf = io.BytesIO()
+            ela_image.save(ela_buf, format="JPEG", quality=90)
+            ela_base64 = "data:image/jpeg;base64," + base64.b64encode(ela_buf.getvalue()).decode("utf-8")
+        except Exception:
+            ela_base64 = ""
+
+        observations.append(
+            "ELA WARN — No JPEG compression history (PNG input); "
+            "Error Level Analysis inconclusive for lossless formats. "
+            "ELA signal excluded from consensus scoring."
+        )
+        logger.debug("[ELA] PNG input — inconclusive, returning Warn")
+        return "Warn", 0.0, "N/A (PNG)", ela_base64, observations
+
     try:
         # In-memory JPEG recompression — no disk writes
         buffer = io.BytesIO()
@@ -228,10 +268,18 @@ def run_frequency_anomaly_ela(
 
         # Pixel difference
         diff = ImageChops.difference(orig, resaved)
-
         # Extrema scaling for visual heatmap
         extrema = diff.getextrema()
-        max_diff = max((ex[1] for ex in extrema), default=1) or 1
+        # Robust extraction: extrema is ((min_r, max_r), (min_g, max_g), (min_b, max_b)) for RGB
+        # or (min, max) for single channel. We want the global maximum across all channels.
+        try:
+            max_diff = max(
+                (e[1] if isinstance(e, tuple) else e)
+                for e in (extrema if isinstance(extrema, tuple) else (extrema,))
+            )
+        except Exception:
+            max_diff = 1
+        max_diff = max_diff or 1
         scale = 255.0 / max_diff
         ela_image = Image.eval(diff, lambda px: int(min(255, px * scale)))
 
@@ -393,17 +441,31 @@ def run_metadata_integrity(
     gps = "Not available"
     if lat_vals and lon_vals:
         try:
+            def parse_rational(val: object) -> float:
+                """Parse a rational string like '12/1' or '1234567/1000' to float.
+                Also handles Ratio objects, tuples, int, float."""
+                # Handle exifread Ratio objects (have .num and .den attributes)
+                if hasattr(val, 'num') and hasattr(val, 'den'):
+                    return float(val.num) / float(val.den)
+                # Handle string representation
+                s = str(val).strip()
+                if "/" in s:
+                    num, den = s.split("/", 1)
+                    return float(num) / float(den)
+                # Handle plain numbers
+                return float(s)
+
             def to_decimal(vals: object) -> float:
-                parts = str(vals).strip("[]").split(", ")
-                deg = float(parts[0])
-                mins = float(parts[1]) if len(parts) > 1 else 0.0
-                secs_str = parts[2] if len(parts) > 2 else "0"
-                # Handle rational notation like "1234567/1000"
-                if "/" in secs_str:
-                    num, den = secs_str.split("/")
-                    secs = float(num) / float(den)
+                # Handle tuple/list of values (deg, min, sec)
+                if isinstance(vals, (tuple, list)):
+                    components = list(vals)
                 else:
-                    secs = float(secs_str)
+                    # String representation like "[12/1, 34/1, 56/1]"
+                    s = str(vals).strip("[]")
+                    components = [c.strip() for c in s.split(",") if c.strip()]
+                deg = parse_rational(components[0]) if len(components) > 0 else 0.0
+                mins = parse_rational(components[1]) if len(components) > 1 else 0.0
+                secs = parse_rational(components[2]) if len(components) > 2 else 0.0
                 return deg + mins / 60.0 + secs / 3600.0
 
             lat_d = to_decimal(lat_vals)
@@ -718,3 +780,7 @@ def inspect_exif(
         "fileStructure": meta.fileStructure,
     }
     return exif_dict, obs
+
+
+# Rebuild model to resolve forward references
+ForensicImageAnalysisResponse.model_rebuild()

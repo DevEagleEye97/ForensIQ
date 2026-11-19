@@ -398,7 +398,7 @@ async def analyze_image_evidence(
     case_id_returned = case_id
 
     try:
-        stmt = _select(EvidenceVault).where(EvidenceVault.file_hash == sha256_hex)
+        stmt = select(EvidenceVault).where(EvidenceVault.file_hash == sha256_hex)
         res = await db.execute(stmt)
         existing = res.scalar_one_or_none()
 
@@ -429,7 +429,7 @@ async def analyze_image_evidence(
         await db.rollback()
         logger.warning("[ANALYZE/IMAGE] IntegrityError on insert, re-selecting: %s", db_exc)
         try:
-            stmt = _select(EvidenceVault).where(EvidenceVault.file_hash == sha256_hex)
+            stmt = select(EvidenceVault).where(EvidenceVault.file_hash == sha256_hex)
             res = await db.execute(stmt)
             existing = res.scalar_one_or_none()
             if existing:
