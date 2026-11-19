@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import {
   ShieldCheck, LayoutDashboard, ScanLine, History,
   Bell, Search, Menu, X, ChevronDown,
-  ExternalLink, FileBarChart2, Lock, Scale, Compass, Database
+  ExternalLink, FileBarChart2, Lock, Scale, Compass, Database, Github
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../lib/utils';
@@ -136,6 +136,18 @@ export default function AppHeader({ activePage, onNavigate, onGoHome }: AppHeade
               <Search className="w-4 h-4" />
             </button>
 
+            {/* GitHub Repository Icon */}
+            <a
+              href="https://github.com/DevEagleEye97/ForensIQ"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-2 rounded-full text-slate-400 hover:text-white hover:bg-slate-800/60 transition-all min-h-[36px] min-w-[36px] flex items-center justify-center group"
+              aria-label="GitHub Repository"
+              title="GitHub Repository (DevEagleEye97/ForensIQ)"
+            >
+              <Github className="w-4 h-4 transition-transform group-hover:scale-110 text-slate-300 group-hover:text-white" />
+            </a>
+
             {/* Badges: Engine & Supabase */}
             <div className="hidden sm:flex items-center gap-1.5">
               <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono border border-slate-800 bg-slate-900/60">
@@ -268,6 +280,16 @@ export default function AppHeader({ activePage, onNavigate, onGoHome }: AppHeade
                       </button>
 
                       <a
+                        href="https://github.com/DevEagleEye97/ForensIQ"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition-colors text-left"
+                      >
+                        <Github className="w-3.5 h-3.5 text-slate-400" />
+                        GitHub Repository
+                      </a>
+
+                      <a
                         href="/docs"
                         target="_blank"
                         rel="noreferrer"
@@ -372,6 +394,16 @@ export default function AppHeader({ activePage, onNavigate, onGoHome }: AppHeade
                     <Scale className="w-4 h-4 text-teal-400" />
                     <span>Evidence Terms</span>
                   </button>
+
+                  <a
+                    href="https://github.com/DevEagleEye97/ForensIQ"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-900 min-h-[44px]"
+                  >
+                    <Github className="w-4 h-4 text-slate-300" />
+                    <span>GitHub Repository</span>
+                  </a>
                 </div>
               </nav>
             </motion.div>

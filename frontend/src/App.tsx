@@ -9,7 +9,7 @@ import NotFoundPage from './pages/NotFoundPage';
 import PagesHub from './pages/PagesHub';
 import SmoothCursor from './components/SmoothCursor';
 import SmoothScroll from './components/SmoothScroll';
-import { ScanLine, Settings, Shield } from 'lucide-react';
+import { ScanLine, Settings, Shield, Github } from 'lucide-react';
 
 type View = 'splash' | 'app';
 
@@ -184,6 +184,17 @@ export default function App() {
                 className="hover:text-slate-300 transition-colors text-indigo-400"
               >
                 API Docs
+              </a>
+              <span>·</span>
+              <a
+                href="https://github.com/DevEagleEye97/ForensIQ"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-white transition-colors text-slate-400 flex items-center gap-1 group"
+                title="GitHub Repository (DevEagleEye97/ForensIQ)"
+              >
+                <Github className="w-3.5 h-3.5 group-hover:text-white transition-colors" />
+                GitHub
               </a>
             </div>
           </footer>

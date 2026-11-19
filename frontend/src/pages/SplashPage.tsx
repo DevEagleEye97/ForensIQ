@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   ShieldCheck, ArrowRight, Upload, ChevronDown,
-  Terminal, Activity, Layers, Sparkles
+  Terminal, Activity, Layers, Sparkles, Github
 } from 'lucide-react';
 import MatrixRain from '../components/MatrixRain';
 import CinematicTitle from '../components/CinematicTitle';
@@ -42,11 +42,23 @@ export default function SplashPage({ onEnter }: SplashPageProps) {
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <div className="hidden md:flex items-center gap-2 font-mono text-[11px] text-slate-400 bg-slate-900/80 px-3 py-1.5 rounded-full border border-slate-800">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               <span>10 ACTIVE ANALYTICAL ENGINES</span>
             </div>
+
+            <a
+              href="https://github.com/DevEagleEye97/ForensIQ"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900 border border-slate-800 transition-colors flex items-center justify-center group"
+              title="View on GitHub (DevEagleEye97/ForensIQ)"
+              aria-label="GitHub Repository"
+            >
+              <Github className="w-4 h-4 text-slate-400 group-hover:text-white transition-colors" />
+            </a>
+
             <button
               onClick={onEnter}
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white text-xs font-mono font-bold uppercase tracking-wider transition-all duration-150 hover:shadow-lg hover:shadow-cyan-500/25 border border-cyan-400/30"
