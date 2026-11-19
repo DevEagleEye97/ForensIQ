@@ -13,7 +13,8 @@ from datetime import datetime, timezone
 from typing import Dict, Any
 
 from fastapi import FastAPI, Request, status
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import uvicorn
@@ -123,6 +124,37 @@ app.add_middleware(
 )
 
 
+# Enterprise Security Response Headers Middleware (OWASP Defense-in-Depth)
+@app.middleware("http")
+async def security_headers_middleware(request: Request, call_next):
+    """
+    Enforces defense-in-depth HTTP security response headers across all routes:
+    - X-Content-Type-Options: nosniff (stops MIME-type confusion attacks)
+    - X-Frame-Options: DENY (anti-clickjacking)
+    - Strict-Transport-Security (HSTS)
+    - Referrer-Policy: strict-origin-when-cross-origin
+    - Permissions-Policy: denies unauthorized sensor access
+    - Content-Security-Policy: restrains script & framing origins
+    """
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "geolocation=(), camera=(), microphone=()"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data: blob: https:; "
+        "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://openrouter.ai https://api-inference.huggingface.co; "
+        "font-src 'self' data:; "
+        "frame-ancestors 'none';"
+    )
+    return response
+
+
 # Security / API Key Middleware (Row-Level / Node Protection)
 @app.middleware("http")
 async def security_api_key_guard(request: Request, call_next):
@@ -197,6 +229,47 @@ async def root_health_check() -> Dict[str, Any]:
             "system_backup": "POST /api/system/backup",
         }
     }
+
+
+# Frontend SPA & /pages Fallback Handler
+FRONTEND_DIST_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "frontend", "dist")
+if os.path.exists(FRONTEND_DIST_DIR):
+    assets_dir = os.path.join(FRONTEND_DIST_DIR, "assets")
+    if os.path.exists(assets_dir):
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+
+
+@app.get("/pages", tags=["Frontend Fallback"])
+@app.get("/pages/{full_path:path}", tags=["Frontend Fallback"])
+async def serve_pages_hub(full_path: str = ""):
+    """
+    Serves the frontend SPA index.html for /pages routes, or returns
+    an active route map if running as a standalone API instance.
+    """
+    index_file = os.path.join(FRONTEND_DIST_DIR, "index.html")
+    if os.path.exists(index_file):
+        return FileResponse(index_file)
+
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content={
+            "service": "ForensIQ Cyber Forensics Engine",
+            "message": "ForensIQ Pages Hub. Frontend SPA routes mapped successfully.",
+            "requested_route": f"/pages/{full_path}" if full_path else "/pages",
+            "available_pages": [
+                "/pages",
+                "/pages/dashboard",
+                "/pages/history",
+                "/pages/reports",
+                "/pages/scans",
+                "/pages/settings",
+                "/pages/privacy",
+                "/pages/terms"
+            ],
+            "api_docs": "/docs",
+            "telemetry": "/health",
+        }
+    )
 
 
 if __name__ == "__main__":

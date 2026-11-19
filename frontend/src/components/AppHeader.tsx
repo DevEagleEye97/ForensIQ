@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react';
 import {
   ShieldCheck, LayoutDashboard, ScanLine, History,
   Bell, Search, Menu, X, ChevronDown,
-  ExternalLink, FileBarChart2, Lock, Scale
+  ExternalLink, FileBarChart2, Lock, Scale, Compass, Database
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../lib/utils';
+import { supabase } from '../utils/supabase/client';
 
 export type Page =
   | 'dashboard'
@@ -15,6 +16,7 @@ export type Page =
   | 'settings'
   | 'privacy'
   | 'terms'
+  | 'pages'
   | 'not-found';
 
 interface AppHeaderProps {
@@ -28,6 +30,7 @@ const navItems = [
   { id: 'history' as Page, label: 'Evidence Vault', icon: History },
   { id: 'reports' as Page, label: 'Dossiers', icon: FileBarChart2 },
   { id: 'scans' as Page, label: 'Live Telemetry', icon: ScanLine },
+  { id: 'pages' as Page, label: 'Pages Hub', icon: Compass },
 ];
 
 export default function AppHeader({ activePage, onNavigate, onGoHome }: AppHeaderProps) {
@@ -35,7 +38,9 @@ export default function AppHeader({ activePage, onNavigate, onGoHome }: AppHeade
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [backendOnline, setBackendOnline] = useState<boolean | null>(null);
+  const [supabaseOnline, setSupabaseOnline] = useState<boolean | null>(null);
 
   useEffect(() => {
     fetch('/health')
@@ -46,18 +51,32 @@ export default function AppHeader({ activePage, onNavigate, onGoHome }: AppHeade
       .catch(() => {
         setBackendOnline(false);
       });
+
+    // Check Supabase Cloud Vault connectivity
+    async function checkSupabase() {
+      try {
+        const { error } = await supabase
+          .from('evidence_vault')
+          .select('case_id', { count: 'exact', head: true });
+        setSupabaseOnline(!error);
+      } catch {
+        setSupabaseOnline(false);
+      }
+    }
+    checkSupabase();
   }, []);
 
   const notifications = [
     { title: 'Neural Model Synchronized', msg: 'Deep-Fake-Detector-v2 + Nemotron 3.5 active', time: 'Just now', critical: false },
-    { title: 'Chain-of-Custody Attestation', msg: 'SQLite Evidence Vault hash integrity verified', time: '12m', critical: false },
+    { title: 'Supabase Cloud Vault Synced', msg: 'PostgreSQL encrypted schema active on fxzylehiojnchtrwcvpu', time: '1m', critical: false },
+    { title: 'Chain-of-Custody Attestation', msg: 'Evidence Vault hash integrity verified', time: '12m', critical: false },
     { title: 'High-Variance Ingestion Flagged', msg: 'Localized ELA compression differential >18%', time: '34m', critical: true },
   ];
 
   return (
     <>
-      <header className="border-b border-slate-800 bg-slate-950/95 backdrop-blur-xl sticky top-0 z-50">
-        <div className="max-w-screen-xl mx-auto px-4 h-14 flex items-center justify-between gap-3">
+      <header className="sticky top-2 sm:top-3 z-50 px-2 sm:px-6 pointer-events-none">
+        <div className="max-w-6xl mx-auto rounded-full border border-slate-800/90 bg-slate-950/85 backdrop-blur-2xl shadow-2xl shadow-black/80 px-3 sm:px-5 h-14 flex items-center justify-between gap-3 pointer-events-auto ring-1 ring-white/10">
 
           {/* Left: Brand Identity */}
           <div className="flex items-center gap-3">
@@ -66,18 +85,18 @@ export default function AppHeader({ activePage, onNavigate, onGoHome }: AppHeade
               className="flex items-center gap-2.5 flex-shrink-0 group min-h-[44px] px-1 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 rounded-xl"
               aria-label="ForensIQ Home"
             >
-              <div className="p-1.5 bg-indigo-600/20 text-indigo-400 rounded-lg border border-indigo-500/30 group-hover:bg-indigo-600/30 transition-colors">
-                <ShieldCheck className="w-5 h-5" />
+              <div className="p-1.5 bg-indigo-600/20 text-indigo-400 rounded-full border border-indigo-500/30 group-hover:bg-indigo-600/30 transition-colors shadow-sm shadow-indigo-500/20">
+                <ShieldCheck className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
               <div className="text-left">
-                <span className="text-base font-black tracking-tight bg-gradient-to-r from-indigo-400 via-sky-300 to-teal-300 bg-clip-text text-transparent font-mono">
+                <span className="text-sm sm:text-base font-black tracking-tight bg-gradient-to-r from-indigo-400 via-sky-300 to-teal-300 bg-clip-text text-transparent font-mono">
                   ForensIQ
                 </span>
-                <span className="text-[9px] text-slate-500 font-mono block -mt-1 hidden sm:block">CYBER FORENSICS v2.0</span>
+                <span className="text-[8px] text-slate-500 font-mono block -mt-1 hidden md:block">CYBER FORENSICS v2.0</span>
               </div>
             </button>
 
-            <div className="h-6 w-px bg-slate-800 hidden lg:block" />
+            <div className="h-5 w-px bg-slate-800 hidden lg:block" />
 
             <nav className="hidden lg:flex items-center gap-1" role="navigation" aria-label="Main navigation">
               {navItems.map((item) => (
@@ -85,15 +104,22 @@ export default function AppHeader({ activePage, onNavigate, onGoHome }: AppHeade
                   key={item.id}
                   onClick={() => onNavigate(item.id)}
                   className={cn(
-                    'flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-mono font-medium transition-all duration-150 min-h-[36px]',
+                    'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-mono font-medium transition-all duration-200 min-h-[32px] relative',
                     activePage === item.id
-                      ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 shadow-sm'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                      ? 'text-cyan-200 shadow-sm'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
                   )}
                   aria-current={activePage === item.id ? 'page' : undefined}
                 >
-                  <item.icon className="w-3.5 h-3.5" />
-                  {item.label}
+                  <item.icon className="w-3.5 h-3.5 relative z-10" />
+                  <span className="relative z-10">{item.label}</span>
+                  {activePage === item.id && (
+                    <motion.div
+                      layoutId="nav-pill"
+                      className="absolute inset-0 rounded-full bg-indigo-600/25 border border-indigo-500/40 shadow-inner"
+                      transition={{ type: 'spring', bounce: 0.25, duration: 0.5 }}
+                    />
+                  )}
                 </button>
               ))}
             </nav>
@@ -104,29 +130,46 @@ export default function AppHeader({ activePage, onNavigate, onGoHome }: AppHeade
 
             <button
               onClick={() => setSearchOpen((v) => !v)}
-              className="p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+              className="p-2 rounded-full text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center"
               aria-label="Toggle search input"
             >
               <Search className="w-4 h-4" />
             </button>
 
-            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono border">
-              {backendOnline === null ? (
-                <span className="text-slate-400 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-pulse" />
-                  Syncing
-                </span>
-              ) : backendOnline ? (
-                <span className="text-emerald-400 flex items-center gap-1 bg-emerald-500/5 px-1 rounded">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  Engine Online
-                </span>
-              ) : (
-                <span className="text-amber-400 flex items-center gap-1 bg-amber-500/5 px-1 rounded">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                  Engine Standby
-                </span>
-              )}
+            {/* Badges: Engine & Supabase */}
+            <div className="hidden sm:flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono border border-slate-800 bg-slate-900/60">
+                {backendOnline === null ? (
+                  <span className="text-slate-400 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-pulse" />
+                    Syncing
+                  </span>
+                ) : backendOnline ? (
+                  <span className="text-emerald-400 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    Engine Online
+                  </span>
+                ) : (
+                  <span className="text-amber-400 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                    Engine Standby
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono border border-emerald-500/30 bg-emerald-950/30">
+                {supabaseOnline ? (
+                  <span className="text-emerald-300 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+                    Supabase Synced
+                  </span>
+                ) : (
+                  <span className="text-slate-400 flex items-center gap-1">
+                    <Database className="w-3 h-3 text-slate-500" />
+                    Vault Ready
+                  </span>
+                )}
+              </div>
             </div>
 
             <div className="relative">
@@ -262,8 +305,16 @@ export default function AppHeader({ activePage, onNavigate, onGoHome }: AppHeade
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                   <input
                     autoFocus
-                    placeholder="Search SHA-256 hash, evidence filename, or case ID..."
-                    className="w-full pl-9 pr-4 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-indigo-500 font-mono"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        onNavigate('history');
+                        setSearchOpen(false);
+                      }
+                    }}
+                    placeholder="Search SHA-256 hash, evidence filename, or case ID (Press Enter)..."
+                    className="w-full pl-9 pr-4 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 font-mono"
                   />
                 </div>
               </div>

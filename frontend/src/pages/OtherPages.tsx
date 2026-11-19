@@ -3,9 +3,10 @@ import {
   Clock, FileBarChart2, AlertTriangle,
   CheckCircle2, XCircle, Image as ImageIcon, Download,
   ArrowUpRight, Search, Inbox, ScanLine,
-  FileText, RefreshCw
+  FileText, RefreshCw, Database
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { supabase } from '../utils/supabase/client';
 
 export interface VaultRecord {
   case_id: string;
@@ -47,22 +48,94 @@ export default function HistoryPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'Likely Authentic' | 'Spliced / Edited' | 'Likely AI-Generated'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [supabaseConnected, setSupabaseConnected] = useState<boolean>(false);
 
   useEffect(() => {
     async function fetchVault() {
       try {
+        let items: VaultRecord[] = [];
         const res = await fetch('/api/vault?limit=100&offset=0');
         if (res.ok) {
           const data = await res.json();
-          setRecords(data.items || []);
+          if (data.items && data.items.length > 0) {
+            items = data.items;
+          }
         }
+
+        // Query Supabase Cloud Vault
+        const { data: supaRecords, error } = await supabase
+          .from('evidence_vault')
+          .select('*')
+          .order('timestamp_utc', { ascending: false })
+          .limit(100);
+
+        if (!error && supaRecords && supaRecords.length > 0) {
+          setSupabaseConnected(true);
+          const supaMapped: VaultRecord[] = supaRecords.map((r: any) => ({
+            case_id: r.case_id,
+            file_name: r.file_name,
+            file_hash: r.file_hash.startsWith('SHA256:') ? r.file_hash : `SHA256: ${r.file_hash}`,
+            file_size_bytes: r.file_size_bytes,
+            mime_type: r.mime_type,
+            tamper_probability: r.tamper_probability,
+            verdict: r.verdict,
+            classification_model: r.classification_model,
+            exif_software: r.exif_software,
+            camera_make: r.camera_make,
+            anomalies: typeof r.anomalies_json === 'string' ? JSON.parse(r.anomalies_json || '[]') : (r.anomalies_json || []),
+            ela_base64_preview: r.ela_base64_preview,
+            timestamp_utc: r.timestamp_utc,
+          }));
+
+          // Merge by unique case_id
+          const map = new Map<string, VaultRecord>();
+          [...items, ...supaMapped].forEach((rec) => map.set(rec.case_id, rec));
+          items = Array.from(map.values());
+        }
+
+        setRecords(items);
       } catch (err) {
         console.error('[HistoryPage] Failed to fetch vault:', err);
       } finally {
         setLoading(false);
       }
     }
+
     fetchVault();
+
+    // Realtime Supabase Channel
+    const channel = supabase
+      .channel('evidence_vault_changes')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'evidence_vault' },
+        (payload) => {
+          const newRow = payload.new as any;
+          if (newRow && newRow.case_id) {
+            const mapped: VaultRecord = {
+              case_id: newRow.case_id,
+              file_name: newRow.file_name,
+              file_hash: newRow.file_hash.startsWith('SHA256:') ? newRow.file_hash : `SHA256: ${newRow.file_hash}`,
+              file_size_bytes: newRow.file_size_bytes,
+              mime_type: newRow.mime_type,
+              tamper_probability: newRow.tamper_probability,
+              verdict: newRow.verdict,
+              classification_model: newRow.classification_model,
+              exif_software: newRow.exif_software,
+              camera_make: newRow.camera_make,
+              anomalies: typeof newRow.anomalies_json === 'string' ? JSON.parse(newRow.anomalies_json || '[]') : (newRow.anomalies_json || []),
+              ela_base64_preview: newRow.ela_base64_preview,
+              timestamp_utc: newRow.timestamp_utc,
+            };
+            setRecords((prev) => [mapped, ...prev.filter((p) => p.case_id !== mapped.case_id)]);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const filtered = records.filter((item) => {
@@ -96,9 +169,18 @@ export default function HistoryPage() {
         {/* Header & Controls */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2 font-mono">
-              <Clock className="w-5 h-5 text-teal-400" /> Evidence Vault Ledger
-            </h2>
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2 font-mono">
+                <Clock className="w-5 h-5 text-teal-400" /> Evidence Vault Ledger
+              </h2>
+              {supabaseConnected && (
+                <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 shadow-sm shadow-emerald-950/40">
+                  <Database className="w-3 h-3 text-emerald-400" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  Supabase Realtime Cloud Sync
+                </span>
+              )}
+            </div>
             <p className="text-xs text-slate-400 mt-0.5 font-mono">
               {filtered.length} of {records.length} cryptographic records indexed
             </p>

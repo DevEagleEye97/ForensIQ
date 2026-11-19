@@ -498,14 +498,8 @@ async def analyze_document_evidence(
     Ingests and parses document evidence (PDF, DOCX, XLSX, PPTX, CSV, HTML, TXT)
     using Microsoft MarkItDown, generates SHA-256 fingerprint, and archives to vault.
     """
-    file_bytes = await file.read()
+    file_bytes = await _read_file_with_limit(file, MAX_FILE_SIZE_BYTES)
     file_size = len(file_bytes)
-
-    if file_size > MAX_FILE_SIZE_BYTES:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail="Payload Too Large: Document exceeds maximum forensic threshold of 25MB."
-        )
 
     filename = sanitize_text(file.filename or "document.bin", max_length=120)
 
@@ -515,7 +509,7 @@ async def analyze_document_evidence(
         logger.error("[DOCUMENT] Conversion error: %s", exc)
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Unable to parse document: {str(exc)}"
+            detail="Unable to parse document: file structure is corrupt or unsupported."
         )
 
     sha256_hex = doc_result["sha256"]

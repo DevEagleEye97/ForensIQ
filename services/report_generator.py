@@ -160,9 +160,12 @@ def generate_html_report(case: Dict[str, Any]) -> str:
     else:
         anomaly_html = "<li>No critical anomalies registered.</li>"
 
-    # ELA image section
+    # ELA image section with strict data URI scheme validation (XSS prevention)
     ela_section = ""
-    if ela_base64:
+    if ela_base64 and (
+        ela_base64.startswith("data:image/jpeg;base64,") or
+        ela_base64.startswith("data:image/png;base64,")
+    ):
         ela_section = f"""
     <section style="margin: 24px 0; padding: 16px; background: #0f172a; border: 1px solid #1e293b; border-radius: 8px;">
       <h3 style="margin: 0 0 12px; color: #e2e8f0; font-size: 14px;">Error Level Analysis (ELA) Heatmap</h3>

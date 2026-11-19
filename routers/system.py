@@ -4,8 +4,10 @@ Handler: /api/system/status (Edge system node connection health, DB status, API 
 """
 
 import os
+import re
 import time
 import socket
+import secrets
 import logging
 from datetime import datetime, timezone
 from typing import Dict, Any
@@ -24,6 +26,12 @@ router = APIRouter(prefix="/api/system", tags=["System Telemetry"])
 
 SYSTEM_BOOT_TIME = time.time()
 NODE_HOSTNAME = socket.gethostname()
+
+
+def mask_database_url(url: str) -> str:
+    """Mask credentials in database URI to prevent sensitive telemetry exposure."""
+    base = url.split("?")[0]
+    return re.sub(r"://([^:]+):([^@]+)@", r"://\1:***@", base)
 
 
 @router.get("/status", response_model=SystemStatusResponse)
@@ -66,7 +74,7 @@ async def get_system_status(db: AsyncSession = Depends(get_db)):
             avg_tamper_probability = round(float(avg_tamper), 1)
     except Exception as exc:
         logger.error("[SYSTEM] Database query failed: %s", exc)
-        db_status = f"DEGRADED ({str(exc)})"
+        db_status = "DEGRADED"
 
     # Measure external AI latencies
     api_latencies = await measure_api_health()
@@ -77,8 +85,8 @@ async def get_system_status(db: AsyncSession = Depends(get_db)):
         uptime_seconds=round(uptime, 2),
         timestamp_utc=datetime.now(timezone.utc).isoformat(),
         database={
-            "provider": "SQLite (aiosqlite asynchronous driver)",
-            "connection_string": DATABASE_URL.split("?")[0],
+            "provider": "SQLite / PostgreSQL (Async Engine)",
+            "connection_string": mask_database_url(DATABASE_URL),
             "status": db_status,
             "archived_cases_count": vault_records_count,
             "image_cases_count": image_cases_count,
@@ -97,16 +105,22 @@ async def trigger_vault_backup(
 ) -> Dict[str, Any]:
     """
     Triggers an instant, timestamped snapshot of the SQLite Evidence Vault.
-    Protected by X-Admin-Key if ADMIN_SECRET_KEY is configured.
+    Protected by constant-time secret comparison against ADMIN_SECRET_KEY.
     """
-    required_key = os.getenv("ADMIN_SECRET_KEY")
-    if required_key and required_key.strip():
-        if x_admin_key != required_key.strip():
-            logger.warning("[SYSTEM/BACKUP] Unauthorized backup attempt rejected.")
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Unauthorized: Invalid or missing X-Admin-Key header."
-            )
+    required_key = os.getenv("ADMIN_SECRET_KEY", "").strip()
+    if not required_key:
+        logger.warning("[SYSTEM/BACKUP] Backup endpoint called without ADMIN_SECRET_KEY configured.")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Service Unavailable: Administrative backup endpoint not configured."
+        )
+
+    if not x_admin_key or not secrets.compare_digest(x_admin_key.strip(), required_key):
+        logger.warning("[SYSTEM/BACKUP] Unauthorized backup attempt rejected.")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Unauthorized: Invalid or missing X-Admin-Key header."
+        )
 
     result = run_vault_backup()
     logger.info("[SYSTEM/BACKUP] Vault backup executed: %s", result.get("backup_file"))

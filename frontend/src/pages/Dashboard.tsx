@@ -14,6 +14,8 @@ import {
 } from 'recharts';
 import { cn } from '../lib/utils';
 import { analytics } from '../lib/analytics';
+import { supabase } from '../utils/supabase/client';
+import PromptModelStudio from '../components/PromptModelStudio';
 
 // Interface matching the backend POST /api/analyze/image response
 export interface BackendAnalysisResult {
@@ -156,6 +158,36 @@ export default function Dashboard() {
       const data: BackendAnalysisResult = await response.json();
       setAnalysisResult(data);
       analytics.trackScan(targetFile.name, targetFile.size, data.verdict, data.tamperProbability);
+
+      // Asynchronous commit to Supabase Cloud Evidence Vault
+      if (data.case_id) {
+        supabase
+          .from('evidence_vault')
+          .upsert(
+            {
+              case_id: data.case_id,
+              file_name: targetFile.name,
+              file_hash: data.metadata?.sha256?.replace('SHA256: ', '') || data.case_id,
+              file_size_bytes: targetFile.size,
+              mime_type: targetFile.type || 'image/jpeg',
+              tamper_probability: data.tamperProbability,
+              verdict: data.verdict,
+              classification_model: data.classificationModel || 'Nemotron 3.5 / ViT',
+              exif_software: data.metadata?.software || null,
+              camera_make: data.metadata?.camera || null,
+              anomalies_json: JSON.stringify(data.anomalies || []),
+              ela_base64_preview: data.elaBase64 ? data.elaBase64.slice(0, 1000) : null,
+            },
+            { onConflict: 'case_id' }
+          )
+          .then(({ error }) => {
+            if (error) {
+              console.warn('[Supabase Vault] Non-blocking cloud sync notification:', error.message);
+            } else {
+              console.info('[Supabase Vault] Case cryptographic record committed:', data.case_id);
+            }
+          });
+      }
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : 'Analysis failed. Could not reach ForensIQ backend.';
       setErrorMessage(errMsg);
@@ -809,6 +841,16 @@ export default function Dashboard() {
           </div>
 
         </main>
+
+        {/* Neural Prompt, Context & Model Studio (Igloo / Maze / Mural spec) */}
+        <section className="max-w-screen-xl mx-auto px-4 sm:px-6 pb-16 pt-2">
+          <PromptModelStudio
+            currentCaseId={analysisResult?.case_id}
+            fileHash={analysisResult?.metadata?.sha256}
+            tamperProb={analysisResult?.tamperProbability}
+            verdict={analysisResult?.verdict}
+          />
+        </section>
       </div>
     </div>
   );

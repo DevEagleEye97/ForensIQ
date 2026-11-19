@@ -42,6 +42,18 @@
       }
     },
     {
+      "source": "/pages",
+      "destination": {
+        "service": "frontend"
+      }
+    },
+    {
+      "source": "/pages/(.*)",
+      "destination": {
+        "service": "frontend"
+      }
+    },
+    {
       "source": "/(.*)",
       "destination": {
         "service": "frontend"
