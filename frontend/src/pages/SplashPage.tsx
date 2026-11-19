@@ -12,7 +12,7 @@ const features = [
   {
     icon: Eye,
     title: 'Deepfake Detection',
-    description: 'State-of-the-art AI models detect face-swap, lip-sync, and generative manipulation with frame-level precision.',
+    description: 'Neural networks detect face-swap, lip-sync, and generative manipulation with frame-level precision.',
     color: 'text-indigo-400',
     bg: 'bg-indigo-500/10 border-indigo-500/20',
   },
@@ -32,8 +32,8 @@ const features = [
   },
   {
     icon: BarChart3,
-    title: 'Frame-by-Frame Analytics',
-    description: 'Interactive probability timelines expose the exact tampered frames with anomaly confidence scoring.',
+    title: 'Anomaly Signal Vectors',
+    description: 'Interactive probability breakdowns expose tamper scores across spatial, frequency, metadata, and GAN dimensions.',
     color: 'text-violet-400',
     bg: 'bg-violet-500/10 border-violet-500/20',
   },
@@ -46,18 +46,11 @@ const features = [
   },
   {
     icon: Zap,
-    title: 'Real-Time Processing',
-    description: 'GPU-accelerated inference pipeline delivers comprehensive forensic reports in seconds, not hours.',
+    title: 'Sub-Second Processing',
+    description: 'In-memory ELA + parallel AI inference delivers comprehensive forensic reports in under 2 seconds.',
     color: 'text-amber-400',
     bg: 'bg-amber-500/10 border-amber-500/20',
   },
-];
-
-const stats = [
-  { value: '99.4%', label: 'Detection Accuracy' },
-  { value: '<2s', label: 'Avg. Analysis Time' },
-  { value: '50+', label: 'Manipulation Vectors' },
-  { value: '4K', label: 'Resolution Support' },
 ];
 
 export default function SplashPage({ onEnter }: SplashPageProps) {
@@ -168,27 +161,6 @@ export default function SplashPage({ onEnter }: SplashPageProps) {
             <span>Scroll to explore</span>
             <ChevronDown className="w-4 h-4 animate-bounce" />
           </motion.div>
-        </div>
-      </section>
-
-      {/* Stats Bar */}
-      <section className="border-y border-slate-800 bg-slate-900/40 py-8 px-6">
-        <div className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8">
-          {stats.map((stat, i) => (
-            <motion.div
-              key={stat.label}
-              initial={{ opacity: 0, y: 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.1 }}
-              className="text-center"
-            >
-              <div className="text-3xl font-black bg-gradient-to-r from-indigo-400 to-sky-300 bg-clip-text text-transparent mb-1">
-                {stat.value}
-              </div>
-              <div className="text-xs text-slate-500 uppercase tracking-widest">{stat.label}</div>
-            </motion.div>
-          ))}
         </div>
       </section>
 

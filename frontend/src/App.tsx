@@ -3,7 +3,6 @@ import SplashPage from './pages/SplashPage';
 import Dashboard from './pages/Dashboard';
 import AppHeader, { type Page } from './components/AppHeader';
 import HistoryPage, { ReportsPage } from './pages/OtherPages';
-import ForensicAnalysisPage from './pages/ForensicAnalysisPage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import TermsPage from './pages/TermsPage';
 import NotFoundPage from './pages/NotFoundPage';
@@ -48,16 +47,15 @@ export default function App() {
             <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 text-indigo-400">
               <ScanLine className="w-10 h-10 animate-pulse" />
             </div>
-            <h3 className="text-sm font-semibold text-slate-200 font-mono">Live Video Stream Ingestion Node</h3>
+            <h3 className="text-sm font-semibold text-slate-200 font-mono">Live Stream Analysis</h3>
             <p className="text-xs text-slate-500 max-w-sm">
-              Real-time RTP/RTSP stream anomaly scanning node is running in background daemon mode.
+              RTP/RTSP ingestion not yet implemented. Use Dashboard for image forensics.
             </p>
           </div>
         )}
 
         {page === 'history' && <HistoryPage />}
         {page === 'reports' && <ReportsPage />}
-        {page === 'forensic-analysis' && <ForensicAnalysisPage />}
         {page === 'privacy' && <PrivacyPolicyPage onBack={() => setPage('dashboard')} />}
         {page === 'terms' && <TermsPage onBack={() => setPage('dashboard')} />}
         {page === 'not-found' && (
@@ -74,7 +72,7 @@ export default function App() {
             </div>
             <h3 className="text-sm font-semibold text-slate-200 font-mono">Platform Configuration</h3>
             <p className="text-xs text-slate-500 max-w-sm">
-              System parameters, local SQLite retention windows, and external Hugging Face &amp; OpenRouter fallback thresholds.
+              Settings panel not yet implemented. API keys configured via environment variables.
             </p>
           </div>
         )}
