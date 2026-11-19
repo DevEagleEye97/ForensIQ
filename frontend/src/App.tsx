@@ -15,6 +15,7 @@ import TeamSection from './components/TeamSection';
 import CookieBanner from './components/CookieBanner';
 import CinematicLoader from './components/CinematicLoader';
 import MatrixBackground from './components/MatrixBackground';
+import Aurora from './components/Aurora';
 import SmoothCursor from './components/SmoothCursor';
 import SmoothScroll from './components/SmoothScroll';
 import { ScanLine, Settings, Shield, Github } from 'lucide-react';
@@ -116,6 +117,17 @@ export default function App() {
 
   return (
     <>
+      {/* Persistent Global Aurora Background (React Bits @react-bits/Aurora-JS-CSS) */}
+      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+        <Aurora
+          colorStops={['#00FF41', '#00D9FF', '#0A1422']}
+          blend={0.6}
+          amplitude={1.1}
+          speed={0.65}
+          opacity={0.65}
+        />
+      </div>
+
       {/* Persistent Global Vanta.js NET Matrix Layer (Fixed at z-0, persists across all pages) */}
       <MatrixBackground />
 

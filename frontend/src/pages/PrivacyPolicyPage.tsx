@@ -106,10 +106,19 @@ export default function PrivacyPolicyPage({ onBack }: LegalPageProps) {
 
           <section className="space-y-2">
             <h2 className="text-base font-bold text-white font-mono flex items-center gap-2">
-              <span className="text-indigo-400">04.</span> User Rights &amp; Regulatory Compliance
+              <span className="text-indigo-400">05.</span> Data Collection &amp; Retention
             </h2>
             <p className="text-xs text-slate-400">
-              Under GDPR and CCPA evidentiary frameworks, operators can export or purge case records directly from the Evidence Vault. Inquiries regarding forensic telemetry protocols may be submitted through our secure agency contact channels.
+              ForensIQ does not collect, store, or process any personal or contextual content data. We only collect the submitted images and the processed forensic data derived from them (SHA-256 digests, EXIF metadata tags, ELA difference previews, and classifier telemetry). No additional content, communications, browsing data, or identifiers are gathered or retained beyond what is required for evidentiary analysis.
+            </p>
+          </section>
+
+          <section className="space-y-2">
+            <h2 className="text-base font-bold text-white font-mono flex items-center gap-2">
+              <span className="text-indigo-400">06.</span> Third-Party Sharing
+            </h2>
+            <p className="text-xs text-slate-400">
+              No images or processed forensic data are shared with third parties unless explicitly required for Tier 2/3 neural inference, in which case payloads are transmitted under TLS 1.3 with strict timeout safeguards and no persistent retention by the receiving service.
             </p>
           </section>
         </div>

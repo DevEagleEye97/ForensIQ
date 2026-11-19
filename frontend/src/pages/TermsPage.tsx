@@ -83,10 +83,19 @@ export default function TermsPage({ onBack }: TermsPageProps) {
 
           <section className="space-y-2">
             <h2 className="text-base font-bold text-white font-mono flex items-center gap-2">
-              <span className="text-teal-400">04.</span> Limitation of Liability
+              <span className="text-teal-400">05.</span> Data Collection &amp; Scope of Processing
             </h2>
             <p className="text-xs text-slate-400">
-              Under no circumstances shall ForensIQ developers or affiliates be liable for indirect, incidental, or consequential damages arising from algorithmic classifications, network timeouts, or reliance on automated forensic telemetry.
+              ForensIQ does not collect any content or personal data beyond what is strictly necessary for forensic analysis. We only collect the submitted images and the processed data generated from them. No other user content, communications, or behavioral data is gathered, stored, or retained.
+            </p>
+          </section>
+
+          <section className="space-y-2">
+            <h2 className="text-base font-bold text-white font-mono flex items-center gap-2">
+              <span className="text-teal-400">06.</span> No Unnecessary Data Retention
+            </h2>
+            <p className="text-xs text-slate-400">
+              Raw file bytes are processed strictly in RAM streams and never persisted. Only cryptographic fingerprints, metadata tags, and synthesized previews are retained in the Evidence Vault for chain-of-custody purposes.
             </p>
           </section>
         </div>

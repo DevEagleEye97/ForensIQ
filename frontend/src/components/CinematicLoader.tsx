@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { Terminal, Cpu, Database, Eye } from 'lucide-react';
+import LetterGlitch from './LetterGlitch';
 import './CinematicLoader.css';
 
 interface CinematicLoaderProps {
@@ -191,11 +192,33 @@ export default function CinematicLoader({ onComplete, skippable = true }: Cinema
       aria-label="ForensIQ forensic system initializing"
       className="fixed inset-0 z-[9999] bg-[#020611]/75 backdrop-blur-sm text-white overflow-hidden select-none font-mono"
     >
-      {/* LAYER 1: Matrix Rain Canvas Overlay (Global Vanta NET shines through underneath) */}
+      {/* LAYER 1: React Bits LetterGlitch (Interactive Cybernetic Glitch Background) */}
+      <div
+        className="absolute inset-0 z-0 pointer-events-none transition-opacity duration-1000"
+        style={{ opacity: matrixOpacity * 0.9 }}
+      >
+        <LetterGlitch
+          glitchColors={['#00ff41', '#00d9ff', '#38bdf8', '#ffffff', '#10b981']}
+          baseColor="#032b14"
+          characters="01FORENSIQCRYPTOSHA256VERIFYEVIDENCE01011001TAMPEREDELAGANNEURALCYBERDEFENSE"
+          fontSize={15}
+          spacing={1}
+          glitchAmount={0.03}
+          speed={0.8}
+          interactive={true}
+          cursorRadius={110}
+          clickEffect="tear"
+          edgeFade={0.3}
+          centerFade={0.12}
+          backgroundColor="transparent"
+        />
+      </div>
+
+      {/* Auxiliary Matrix Stream Overlay */}
       <canvas
         ref={matrixCanvasRef}
-        className="absolute inset-0 z-0 pointer-events-none transition-opacity duration-1000"
-        style={{ opacity: matrixOpacity * 0.75 }}
+        className="absolute inset-0 z-[1] pointer-events-none transition-opacity duration-1000"
+        style={{ opacity: matrixOpacity * 0.35 }}
       />
 
       {/* BACKSIDE LINES: 3D Perspective Horizon & Tactical Coordinate Grid */}
