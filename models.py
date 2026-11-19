@@ -80,6 +80,9 @@ class ForensicAnalysisResponse(BaseModel):
     anomalies: List[str]
     elaBase64: str
     case_id: Optional[str] = None
+    evidence_fingerprint: Optional[str] = None
+    simplified_report: Optional[Dict[str, Any]] = None
+    recapture_analysis: Optional[Dict[str, Any]] = None
 
     model_config = ConfigDict(populate_by_name=True)
 

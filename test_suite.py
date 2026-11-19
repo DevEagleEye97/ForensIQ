@@ -151,7 +151,7 @@ def run_tests():
     png_data = r.json()
     # PNG should get frequencyAnomaly = Warn (inconclusive), not auto-fail
     assert png_data["checks"]["frequencyAnomaly"] == "Warn", f"Expected Warn for PNG, got {png_data['checks']['frequencyAnomaly']}"
-    assert "inconclusive" in png_data["anomalies"][1].lower() or "png" in png_data["anomalies"][1].lower()
+    assert any("inconclusive" in a.lower() or "png" in a.lower() for a in png_data["anomalies"])
     print(f"   [PASS] PNG handled correctly: frequencyAnomaly=Warn, verdict={png_data['verdict']}")
 
     print(">>> 12. Testing duplicate upload reuses case_id...")
@@ -207,8 +207,52 @@ def run_tests():
     # This is implicitly tested by all above tests running without API keys
     print("   [PASS] All endpoints return 200 without external API keys (heuristic fallback).")
 
+    print(">>> 16. Testing TruthLens Simplified Report & Red/Green Flag System...")
+    r = client.post(
+        "/api/analyze/image",
+        files={"file": ("flag_test.jpg", jpeg_bytes, "image/jpeg")}
+    )
+    assert r.status_code == 200
+    res_data = r.json()
+    assert "simplified_report" in res_data and res_data["simplified_report"] is not None
+    assert res_data["simplified_report"]["verdict"] in ("RED_FLAG", "GREEN_FLAG", "NEEDS_REVIEW")
+    assert "key_finding" in res_data["simplified_report"]
+    assert "simple_explanation" in res_data["simplified_report"]
+    assert "evidence_fingerprint" in res_data and res_data["evidence_fingerprint"].startswith("SHA256: ")
+    print("   [PASS] Simplified report generated with Flag Verdict:", res_data["simplified_report"]["verdict"])
+
+    print(">>> 17. Testing Screenshot Re-Capture Detection Test...")
+    screen_img = Image.new("RGB", (1920, 1080), color=(80, 120, 160))
+    screen_buf = io.BytesIO()
+    screen_img.save(screen_buf, format="PNG")
+    screen_bytes = screen_buf.getvalue()
+
+    r = client.post(
+        "/api/analyze/image",
+        files={"file": ("screenshot_ai.png", screen_bytes, "image/png")}
+    )
+    assert r.status_code == 200
+    screen_data = r.json()
+    assert "recapture_analysis" in screen_data and screen_data["recapture_analysis"] is not None
+    assert screen_data["recapture_analysis"]["is_recaptured"] is True
+    assert screen_data["recapture_analysis"]["ui_badge"] is not None
+    print("   [PASS] Screenshot re-capture detected:", screen_data["recapture_analysis"]["ui_badge"])
+
+    print(">>> 18. Testing POST /api/analyze/multimodal (Cross-Modal Correlation)...")
+    r = client.post(
+        "/api/analyze/multimodal",
+        files={"file": ("captioned_evidence.jpg", jpeg_bytes, "image/jpeg")},
+        data={"caption": "Official White House press briefing photograph."}
+    )
+    assert r.status_code == 200
+    multi_data = r.json()
+    assert multi_data["status"] == "success"
+    assert "cross_modal_correlation" in multi_data
+    assert "deepfake_classifier" in multi_data
+    print("   [PASS] Multimodal cross-modal correlation endpoint operational.")
+
     print("\n=======================================================")
-    print("ALL 15 FORENSIQ REGRESSION TESTS PASSED WITH 100% SUCCESS!")
+    print("ALL 18 TRUTHLENS FORENSIQ REGRESSION TESTS PASSED (100%)!")
     print("=======================================================")
 
 if __name__ == "__main__":

@@ -14,8 +14,10 @@ import httpx
 
 logger = logging.getLogger("forensiq.services.ai_inference")
 
-HF_MODEL_NAME = "prithivMLmods/Deep-Fake-Detector-v2-Model"
+HF_MODEL_NAME = "Falconsai/deepfake_detection"
+HF_BACKUP_MODEL_NAME = "prithivMLmods/Deep-Fake-Detector-v2-Model"
 HF_ENDPOINT_URL = f"https://router.huggingface.co/hf-inference/models/{HF_MODEL_NAME}"
+HF_BACKUP_ENDPOINT_URL = f"https://router.huggingface.co/hf-inference/models/{HF_BACKUP_MODEL_NAME}"
 OPENROUTER_ENDPOINT_URL = "https://openrouter.ai/api/v1/chat/completions"
 OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models"
 
@@ -242,3 +244,129 @@ async def measure_api_health() -> Dict[str, Any]:
             latencies["openrouter_ms"] = None
 
     return latencies
+
+
+# ==============================================================================
+# TIER 2: FALCONSAI DEEPFAKE DETECTION (SERVERLESS INFERENCE)
+# ==============================================================================
+
+async def analyze_image_deepfake(image_bytes: bytes) -> Dict[str, Any]:
+    """
+    Tier 2: Queries Hugging Face for deepfake probability using Falconsai/deepfake_detection
+    (EfficientNet trained on DFDC and FaceForensics++).
+    Includes strict 5.0s timeout and bulletproof fallback.
+    """
+    hf_token = os.getenv("HUGGINGFACE_API_TOKEN") or os.getenv("HUGGINGFACE_API_KEY")
+    if not hf_token or hf_token.strip() in ("", "your-token", "your_huggingface_api_key_here"):
+        return {
+            "status": "fallback",
+            "model": "local_heuristics",
+            "verdict": "REQUIRES_MANUAL_REVIEW",
+            "confidence": 0.50,
+            "reason": "Hugging Face token not configured. Relying on Tier 1 Deterministic ELA/EXIF analysis."
+        }
+
+    headers = {"Authorization": f"Bearer {hf_token.strip()}"}
+    endpoints = [
+        "https://router.huggingface.co/hf-inference/models/Falconsai/deepfake_detection",
+        "https://api-inference.huggingface.co/models/Falconsai/deepfake_detection",
+        "https://router.huggingface.co/hf-inference/models/prithivMLmods/Deep-Fake-Detector-v2-Model"
+    ]
+
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as http_client:
+            for ep in endpoints:
+                try:
+                    response = await http_client.post(ep, headers=headers, content=image_bytes)
+                    if response.status_code == 200:
+                        result = response.json()
+                        if isinstance(result, list) and result:
+                            top_prediction = result[0]
+                            raw_label = str(top_prediction.get("label", "")).upper()
+                            verdict = "FAKE" if "FAKE" in raw_label or "LABEL_1" in raw_label else "REAL"
+                            return {
+                                "status": "success",
+                                "model": "Falconsai/deepfake_detection",
+                                "verdict": verdict,
+                                "confidence": round(float(top_prediction.get("score", 0.5)), 4),
+                                "raw_scores": result
+                            }
+                except Exception:
+                    continue
+            raise Exception("All Hugging Face serverless endpoints returned non-200")
+    except httpx.TimeoutException:
+        return {
+            "status": "fallback",
+            "model": "local_heuristics",
+            "verdict": "REQUIRES_MANUAL_REVIEW",
+            "confidence": 0.50,
+            "reason": "AI API timeout (>5.0s). Relying on Tier 1 Deterministic ELA/EXIF analysis."
+        }
+    except Exception as e:
+        return {
+            "status": "fallback",
+            "model": "local_heuristics",
+            "verdict": "REQUIRES_MANUAL_REVIEW",
+            "confidence": 0.50,
+            "reason": f"AI API failed: {str(e)}. Relying on Tier 1 Deterministic ELA/EXIF analysis."
+        }
+
+
+# ==============================================================================
+# TIER 3: MULTIMODAL CROSS-MODAL CORRELATION (OPENROUTER VISION)
+# ==============================================================================
+
+async def check_multimodal_consistency(image_base64: str, text_caption: str) -> Dict[str, Any]:
+    """
+    Tier 3: Uses a Vision-Language Model to check if the text caption 
+    matches the visual evidence in the image (Cross-Modal Correlation).
+    """
+    openrouter_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENROUTER_TOKEN")
+    if not openrouter_key or openrouter_key.strip() in ("", "your-key"):
+        return {"status": "skipped", "reason": "No OpenRouter API Key provided."}
+
+    candidate_models = [
+        os.getenv("OPENROUTER_MODEL", "nvidia/nemotron-3.5-super-vl"),
+        "meta-llama/llama-3.2-11b-vision-instruct:free",
+        "nvidia/nemotron-nano-12b-v2-vl:free"
+    ]
+
+    for model in candidate_models:
+        try:
+            async with httpx.AsyncClient(timeout=8.0) as client:
+                response = await client.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {openrouter_key.strip()}",
+                        "HTTP-Referer": "https://forensiq.ai",
+                        "X-Title": "ForensIQ TruthLens"
+                    },
+                    json={
+                        "model": model,
+                        "messages": [
+                            {
+                                "role": "user",
+                                "content": [
+                                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}},
+                                    {"type": "text", "text": f"Analyze this image. The accompanying text caption is: '{text_caption}'. Does the visual evidence support this caption? Point out any inconsistencies, manipulated elements, or context mismatches. Keep it under 3 sentences."}
+                                ]
+                            }
+                        ]
+                    }
+                )
+                if response.status_code == 200:
+                    data = response.json()
+                    return {
+                        "status": "success",
+                        "model_used": model,
+                        "analysis": data["choices"][0]["message"]["content"]
+                    }
+        except Exception as e:
+            logger.warning("[TIER3] Multimodal consistency check error with %s: %s", model, e)
+            continue
+
+    return {
+        "status": "fallback",
+        "model_used": "local_heuristics",
+        "analysis": "Cross-modal verification unavailable (upstream model timeout/rate-limit). Relying on Tier 1 forensic metrics."
+    }

@@ -8,12 +8,13 @@ import os
 import json
 import uuid
 import hashlib
+import base64
 import io
 import logging
 from datetime import datetime, timezone
 from typing import List, Literal, Optional
 
-from fastapi import APIRouter, File, UploadFile, HTTPException, Depends, status
+from fastapi import APIRouter, File, UploadFile, Form, HTTPException, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -33,11 +34,20 @@ from services.forensics_engine import (
     run_metadata_integrity,
     evaluate_gan_fingerprint,
     build_consensus,
+    detect_screenshot_recapture,
+    generate_simplified_report,
     ChecksContract,
     MetadataContract,
     ForensicImageAnalysisResponse,
+    SimplifiedReportContract,
+    RecaptureAnalysisContract,
 )
-from services.ai_inference import query_huggingface_classifier, query_openrouter_vision
+from services.ai_inference import (
+    query_huggingface_classifier,
+    query_openrouter_vision,
+    analyze_image_deepfake,
+    check_multimodal_consistency
+)
 
 logger = logging.getLogger("forensiq.routers.workbench")
 router = APIRouter(prefix="/api", tags=["Forensic Workbench"])
@@ -263,10 +273,27 @@ async def analyze_evidence(
         quantizationHash=quantization_status
     )
 
+    # ── Generate TruthLens Simplified Report & Re-Capture Test ──────────
+    recapture = await run_in_threadpool(
+        detect_screenshot_recapture, file_bytes, mime_type, metadata_contract.camera
+    )
+    checks_c = ChecksContract(
+        spatialArtifact=spatial_status,
+        frequencyAnomaly=ela_status,
+        metadataIntegrity=meta_status,
+        ganFingerprint=gan_status,
+    )
+    simplified = generate_simplified_report(
+        tamper_probability, verdict, checks_c, recapture, all_anomalies
+    )
+
     return ForensicAnalysisResponse(
         hash=f"SHA256: {sha256_hex}",
+        evidence_fingerprint=f"SHA256: {sha256_hex}",
         tamperProbability=tamper_probability,
         verdict=verdict,
+        simplified_report=simplified.model_dump(),
+        recapture_analysis=recapture.model_dump(),
         classificationModel=classification_model,
         exifData=exif_data,
         anomalies=all_anomalies,
@@ -443,7 +470,35 @@ async def analyze_image_evidence(
         logger.error("[ANALYZE/IMAGE] DB persistence failed: %s", db_exc)
         case_id_returned = None
 
-    # ── Step 8: Return structured telemetry ───────────────────────────────────
+    # ── Step 8: TruthLens Re-Capture & Plain English Simplification ───────────
+    recapture_analysis = await run_in_threadpool(
+        detect_screenshot_recapture, file_bytes, mime_type, metadata_contract.camera
+    )
+    if recapture_analysis.is_recaptured:
+        all_anomalies.insert(
+            0,
+            f"[Screenshot Detection] ⚠️ Re-captured image detected ({recapture_analysis.recapture_confidence}% confidence). "
+            + "; ".join(recapture_analysis.signals_detected[:2])
+        )
+        if tamper_probability >= 45 or spatial_status != "Pass" or ela_status != "Pass":
+            recapture_analysis.recapture_adjusted_verdict = "Likely AI (re-captured)"
+            verdict = "Likely AI-Generated"
+
+    checks_contract = ChecksContract(
+        spatialArtifact=spatial_status,
+        frequencyAnomaly=ela_status,
+        metadataIntegrity=meta_status,
+        ganFingerprint=gan_status,
+    )
+
+    simplified_report = generate_simplified_report(
+        tamper_probability=tamper_probability,
+        verdict=verdict,
+        checks=checks_contract,
+        recapture=recapture_analysis,
+        anomalies=all_anomalies,
+    )
+
     # Build optional signals object with real measured numbers
     signals = {
         "spatial_patch_std": round(spatial_std, 2),
@@ -457,14 +512,12 @@ async def analyze_image_evidence(
 
     return ForensicImageAnalysisResponse(
         case_id=case_id_returned,
+        evidence_fingerprint=f"SHA256: {sha256_hex}",
         tamperProbability=tamper_probability,
         verdict=verdict,
-        checks=ChecksContract(
-            spatialArtifact=spatial_status,
-            frequencyAnomaly=ela_status,
-            metadataIntegrity=meta_status,
-            ganFingerprint=gan_status,
-        ),
+        simplified_report=simplified_report,
+        recapture_analysis=recapture_analysis,
+        checks=checks_contract,
         metadata=metadata_contract,
         elaBase64=ela_base64,
         anomalies=all_anomalies,
@@ -472,6 +525,48 @@ async def analyze_image_evidence(
         fallbackMode=fallback_mode,
         signals=signals,
     )
+
+
+# ==============================================================================
+# NEW: /api/analyze/multimodal — TruthLens Cross-Modal Correlation
+# Verifies if image visual evidence logically supports accompanying text caption
+# ==============================================================================
+
+@router.post(
+    "/analyze/multimodal",
+    status_code=status.HTTP_200_OK,
+    summary="TruthLens Multimodal Cross-Modal Consistency Analysis",
+    description="Examines cross-modal correlation between image visual evidence and accompanying text caption."
+)
+async def analyze_multimodal_evidence(
+    file: UploadFile = File(...),
+    caption: str = Form(""),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Tier 3 Cross-Modal Verification:
+    Checks if accompanying text caption matches visual evidence in the image.
+    """
+    file_bytes = await _read_file_with_limit(file, MAX_FILE_SIZE_BYTES)
+    _guard_image_dimensions(file_bytes)
+    sha256_hex = hashlib.sha256(file_bytes).hexdigest()
+    b64_img = base64.b64encode(file_bytes).decode("utf-8")
+
+    # 1. Tier 2 Deepfake Classifier (Falconsai/deepfake_detection)
+    deepfake_res = await analyze_image_deepfake(file_bytes)
+
+    # 2. Tier 3 Multimodal Cross-Modal Correlation
+    consistency_res = await check_multimodal_consistency(b64_img, caption or "Documentary evidence photograph.")
+
+    return {
+        "status": "success",
+        "case_id": f"MULTI-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}-{sha256_hex[:8].upper()}",
+        "evidence_fingerprint": f"SHA256: {sha256_hex}",
+        "caption_analyzed": caption,
+        "cross_modal_correlation": consistency_res,
+        "deepfake_classifier": deepfake_res,
+        "timestamp_utc": datetime.now(timezone.utc).isoformat()
+    }
 
 
 # ==============================================================================

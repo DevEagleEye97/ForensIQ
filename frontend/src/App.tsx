@@ -7,6 +7,7 @@ import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import TermsPage from './pages/TermsPage';
 import NotFoundPage from './pages/NotFoundPage';
 import PagesHub from './pages/PagesHub';
+import CinematicLoader from './components/CinematicLoader';
 import SmoothCursor from './components/SmoothCursor';
 import SmoothScroll from './components/SmoothScroll';
 import { ScanLine, Settings, Shield, Github } from 'lucide-react';
@@ -51,6 +52,17 @@ export default function App() {
   const initial = resolveRouteFromPath(window.location.pathname);
   const [view, setView] = useState<View>(initial.view);
   const [page, setPage] = useState<Page>(initial.page);
+  const [isCinematicLoading, setIsCinematicLoading] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('skipIntro') === 'true') return false;
+    }
+    return true;
+  });
+
+  const replayCinematic = useCallback(() => {
+    setIsCinematicLoading(true);
+  }, []);
 
   // Sync state with browser back/forward buttons
   useEffect(() => {
@@ -81,13 +93,21 @@ export default function App() {
   }, []);
 
   return (
-    <SmoothScroll>
-      {/* 120Hz iOS Fluid Cursor */}
-      <SmoothCursor />
+    <>
+      {isCinematicLoading && (
+        <CinematicLoader onComplete={() => setIsCinematicLoading(false)} />
+      )}
 
-      {view === 'splash' ? (
-        <SplashPage onEnter={() => navigateTo('dashboard')} />
-      ) : (
+      <SmoothScroll>
+        {/* 120Hz iOS Fluid Cursor */}
+        <SmoothCursor />
+
+        {view === 'splash' ? (
+          <SplashPage
+            onEnter={() => navigateTo('dashboard')}
+            onReplayCinematic={replayCinematic}
+          />
+        ) : (
         <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-cyan-500/30 selection:text-cyan-200">
           {/* Top Application Header */}
           <AppHeader
@@ -201,5 +221,6 @@ export default function App() {
         </div>
       )}
     </SmoothScroll>
+  </>
   );
 }

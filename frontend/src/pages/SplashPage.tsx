@@ -15,9 +15,10 @@ import {
 
 interface SplashPageProps {
   onEnter: () => void;
+  onReplayCinematic?: () => void;
 }
 
-export default function SplashPage({ onEnter }: SplashPageProps) {
+export default function SplashPage({ onEnter, onReplayCinematic }: SplashPageProps) {
   const [selectedTool, setSelectedTool] = useState<ForensicTool | null>(null);
 
   const leftTools = FORENSIC_TOOLS_10.slice(0, 5);
@@ -43,6 +44,17 @@ export default function SplashPage({ onEnter }: SplashPageProps) {
           </div>
 
           <div className="flex items-center gap-3">
+            {onReplayCinematic && (
+              <button
+                onClick={onReplayCinematic}
+                className="hidden lg:flex items-center gap-1.5 font-mono text-[11px] text-emerald-400 bg-emerald-950/40 hover:bg-emerald-900/60 px-3 py-1.5 rounded-full border border-emerald-500/40 transition-colors"
+                title="Replay 4.5s Cyberpunk Matrix Cinematic Intro"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                <span>CINEMATIC INTRO</span>
+              </button>
+            )}
+
             <div className="hidden md:flex items-center gap-2 font-mono text-[11px] text-slate-400 bg-slate-900/80 px-3 py-1.5 rounded-full border border-slate-800">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               <span>10 ACTIVE ANALYTICAL ENGINES</span>

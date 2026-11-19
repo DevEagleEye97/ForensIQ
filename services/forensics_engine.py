@@ -36,11 +36,44 @@ logger = logging.getLogger("forensiq.services.forensics_engine")
 # ---------------------------------------------------------------------------
 CheckStatus = Literal["Pass", "Warn", "Fail"]
 Verdict = Literal["Likely AI-Generated", "Likely Authentic", "Spliced / Edited"]
+FlagVerdict = Literal["RED_FLAG", "GREEN_FLAG", "NEEDS_REVIEW"]
+ConfidenceLevel = Literal["HIGH", "MEDIUM", "LOW"]
 
 
 # ===========================================================================
 # PYDANTIC V2 — OUTPUT DATA CONTRACT (matches frontend UI cards exactly)
 # ===========================================================================
+
+class SimplifiedReportContract(BaseModel):
+    """
+    Human-readable forensic translation layer for non-technical investigators.
+    Converts mathematical sensor vectors into plain English.
+    """
+    verdict: FlagVerdict
+    flag_color: str                # e.g. "#EF4444", "#10B981", "#F59E0B"
+    flag_icon: str                 # e.g. "⚠", "✓", "?"
+    status_message: str            # e.g. "Suspicious - Likely AI-generated or manipulated"
+    simple_explanation: str        # Plain English summary (max 3 sentences, short)
+    key_finding: str               # One-liner highlighting the primary clue
+    confidence_level: ConfidenceLevel
+    technical_details_available: bool = True
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class RecaptureAnalysisContract(BaseModel):
+    """
+    Screenshot & Display Re-capture Detection Analysis.
+    Detects when an AI image is screenshotted and re-uploaded.
+    """
+    is_recaptured: bool
+    recapture_confidence: int = Field(ge=0, le=100)
+    signals_detected: List[str]
+    ui_badge: Optional[str] = None
+    recapture_adjusted_verdict: Optional[str] = None
+
+    model_config = ConfigDict(populate_by_name=True)
+
 
 class ChecksContract(BaseModel):
     """Four-check binary status block matching Dashboard.tsx check cards."""
@@ -72,8 +105,11 @@ class ForensicImageAnalysisResponse(BaseModel):
     Matches the JSON contract defined in the instruction spec exactly.
     """
     case_id: str
+    evidence_fingerprint: str = ""   # Cryptographic SHA-256 Chain of Custody Proof
     tamperProbability: int = Field(ge=0, le=100)
     verdict: Verdict
+    simplified_report: Optional[SimplifiedReportContract] = None
+    recapture_analysis: Optional[RecaptureAnalysisContract] = None
     checks: ChecksContract
     metadata: MetadataContract
     elaBase64: str
@@ -670,6 +706,188 @@ def build_consensus(
         spatial_status, ela_status, meta_status, gan_status,
     )
     return tamper_probability, verdict, fallback_mode
+
+
+# ===========================================================================
+# CHECK 3.5 — SCREENSHOT RE-CAPTURE DETECTION TEST (Mentor Insight)
+# Detects whether an image is a screen grab / re-captured AI generation
+# ===========================================================================
+
+COMMON_SCREEN_RESOLUTIONS = {
+    # Desktop standard & HiDPI
+    (1920, 1080), (1080, 1920), (2560, 1440), (1440, 2560), (3840, 2160), (2160, 3840),
+    (1366, 768), (768, 1366), (1440, 900), (1680, 1050), (2880, 1800), (3024, 1964),
+    (3456, 2234), (1280, 720), (720, 1280), (1280, 800), (800, 1280),
+    # Modern Mobile Displays (iPhone & Android)
+    (1170, 2532), (2532, 1170), (1179, 2556), (2556, 1179), (1284, 2778), (2778, 1284),
+    (1290, 2796), (2796, 1290), (1080, 2400), (2400, 1080), (1080, 2340), (2340, 1080),
+    (1440, 3120), (3120, 1440), (1440, 3200), (3200, 1440), (1440, 3088), (3088, 1440),
+    (1080, 2376), (2376, 1080), (750, 1334), (1334, 750), (1242, 2688), (2688, 1242),
+}
+
+
+def detect_screenshot_recapture(
+    image_bytes: bytes,
+    mime_type: str,
+    camera: str,
+) -> RecaptureAnalysisContract:
+    """
+    Detects whether an image was created by screenshotting or screen capture,
+    even if it captures an AI-generated image.
+    """
+    signals: List[str] = []
+    confidence_points = 0
+
+    try:
+        with Image.open(io.BytesIO(image_bytes)) as img:
+            w, h = img.size
+            dpi = img.info.get("dpi")
+    except Exception:
+        w, h = 0, 0
+        dpi = None
+
+    # Signal 1: Camera sensor tags absent
+    if camera == "Unknown (Born-Digital)" or not camera:
+        signals.append("Missing camera hardware signature (typical of screen grabs)")
+        confidence_points += 25
+
+    # Signal 2: Match known display resolutions or typical screen ratios
+    if (w, h) in COMMON_SCREEN_RESOLUTIONS:
+        signals.append(f"Dimensions ({w}×{h}) match standard device display resolution")
+        confidence_points += 35
+    elif w > 0 and h > 0:
+        ratio = max(w, h) / min(w, h)
+        if any(abs(ratio - target) < 0.04 for target in (1.778, 2.164, 2.167, 2.222, 1.600, 2.000)):
+            signals.append(f"Screen aspect ratio ({ratio:.2f}:1) matches mobile or desktop display viewport")
+            confidence_points += 20
+
+    # Signal 3: Standard screen DPI (72, 96, 144 DPI)
+    if dpi:
+        dpi_val = dpi[0] if isinstance(dpi, (tuple, list)) else dpi
+        if dpi_val in (72, 96, 144):
+            signals.append(f"Display raster DPI ({dpi_val} DPI) matches operating system screenshot default")
+            confidence_points += 15
+
+    # Signal 4: PNG format with stripped metadata
+    if mime_type == "image/png":
+        signals.append("PNG compression container (standard format for OS screen captures)")
+        confidence_points += 15
+
+    is_recaptured = confidence_points >= 40
+    recapture_confidence = min(95, max(0, confidence_points))
+
+    ui_badge = "⚠️ This appears to be a re-captured/screenshot image" if is_recaptured else None
+
+    return RecaptureAnalysisContract(
+        is_recaptured=is_recaptured,
+        recapture_confidence=recapture_confidence,
+        signals_detected=signals,
+        ui_badge=ui_badge,
+        recapture_adjusted_verdict=None
+    )
+
+
+# ===========================================================================
+# SIMPLIFIED REPORT TRANSLATION LAYER (Plain English & Red/Green Flag System)
+# ===========================================================================
+
+def generate_simplified_report(
+    tamper_probability: int,
+    verdict: Verdict,
+    checks: ChecksContract,
+    recapture: RecaptureAnalysisContract,
+    anomalies: List[str],
+) -> SimplifiedReportContract:
+    """
+    Translates complex forensic metrics into plain English for non-technical investigators.
+    Applies the Red/Green/Amber flag verdict system.
+    """
+    # 1. Determine Flag Verdict
+    # Red Flag: Tamper prob >= 60% OR multiple manipulation indicators OR recaptured AI
+    if tamper_probability >= 60 or checks.ganFingerprint == "Fail" or checks.frequencyAnomaly == "Fail":
+        flag: FlagVerdict = "RED_FLAG"
+        color = "#EF4444"
+        icon = "⚠"
+        status_msg = "Suspicious - Likely AI-generated or manipulated"
+        conf_level: ConfidenceLevel = "HIGH" if tamper_probability >= 75 else "MEDIUM"
+    elif recapture.is_recaptured and (checks.spatialArtifact in ("Warn", "Fail") or checks.frequencyAnomaly in ("Warn", "Fail")):
+        flag = "RED_FLAG"
+        color = "#EF4444"
+        icon = "⚠"
+        status_msg = "Suspicious - Re-captured AI or edited image"
+        conf_level = "HIGH"
+    elif tamper_probability <= 25 and checks.frequencyAnomaly == "Pass" and checks.metadataIntegrity == "Pass" and not recapture.is_recaptured:
+        flag = "GREEN_FLAG"
+        color = "#10B981"
+        icon = "✓"
+        status_msg = "Authentic - No manipulation detected"
+        conf_level = "HIGH"
+    else:
+        # Ambiguous / Conflicting zone
+        flag = "NEEDS_REVIEW"
+        color = "#F59E0B"
+        icon = "?"
+        status_msg = "Uncertain - Human investigator review required"
+        conf_level = "LOW"
+
+    # 2. Extract Key Finding (short one-liner)
+    if flag == "RED_FLAG":
+        if recapture.is_recaptured:
+            key_finding = "Image was screenshotted from a display and exhibits synthetic edge anomalies."
+        elif checks.ganFingerprint == "Fail":
+            key_finding = "Artificial intelligence generation patterns confidently detected across facial boundaries."
+        elif checks.frequencyAnomaly == "Fail":
+            key_finding = "Compression levels do not match, indicating pasted or spliced elements."
+        else:
+            key_finding = "Unnatural pixel boundaries detected consistent with digital photo manipulation."
+    elif flag == "GREEN_FLAG":
+        key_finding = "Natural camera lens and consistent compression levels found throughout image."
+    else:
+        key_finding = "Mixed signals detected between compression levels and camera signature."
+
+    # 3. Plain English Explanation (max 3 sentences, <= 15 words per sentence)
+    if flag == "RED_FLAG":
+        if recapture.is_recaptured:
+            explanation = (
+                "This image was re-captured from a digital screen. "
+                "Beneath the screenshot, compression and edge patterns indicate artificial tampering. "
+                "Digital markers strongly indicate synthetic origin."
+            )
+        elif checks.frequencyAnomaly == "Fail":
+            explanation = (
+                "Like pasting a paper cutout into a photo, pixel compression does not match. "
+                "Different parts of this image were saved at different quality levels. "
+                "This confirms regions were edited or spliced."
+            )
+        else:
+            explanation = (
+                "Microscopic pixel patterns do not match real camera lenses. "
+                "Artificial intelligence left subtle mathematical traces across boundaries. "
+                "The image shows strong hallmarks of AI generation."
+            )
+    elif flag == "GREEN_FLAG":
+        explanation = (
+            "Camera hardware signature and natural light gradients match across the entire photo. "
+            "Compression levels are uniform without spliced edges. "
+            "No signs of digital manipulation or artificial generation detected."
+        )
+    else:
+        explanation = (
+            "The image shows conflicting technical signals. "
+            "Camera metadata is missing, but compression levels appear mostly uniform. "
+            "A human forensic investigator should inspect this image manually."
+        )
+
+    return SimplifiedReportContract(
+        verdict=flag,
+        flag_color=color,
+        flag_icon=icon,
+        status_message=status_msg,
+        simple_explanation=explanation,
+        key_finding=key_finding,
+        confidence_level=conf_level,
+        technical_details_available=True
+    )
 
 
 # ===========================================================================

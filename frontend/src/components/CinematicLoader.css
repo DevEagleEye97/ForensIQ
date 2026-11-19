@@ -1,0 +1,219 @@
+/* ==========================================================================
+   FORENSIQ CINEMATIC LOADER & REVEAL SYSTEM
+   Aesthetic: Cyberpunk Forensic Thriller (Mr. Robot x The Matrix x Blade Runner 2049)
+   Palette: Matrix Green (#00FF41), Deep Black (#0A0A0A), Cyan Accent (#00D9FF)
+   ========================================================================== */
+
+@keyframes cinematicFadeIn {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+@keyframes cinematicFadeOut {
+  0% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.08); filter: blur(6px); }
+}
+
+@keyframes slideInTop {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(0); }
+}
+
+@keyframes slideOutTop {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-100%); }
+}
+
+@keyframes slideInBottom {
+  0% { transform: translateY(100%); }
+  100% { transform: translateY(0); }
+}
+
+@keyframes slideOutBottom {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(100%); }
+}
+
+@keyframes slideInLeft {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(0); }
+}
+
+@keyframes slideOutLeft {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-100%); }
+}
+
+@keyframes slideInRight {
+  0% { transform: translateX(100%); }
+  100% { transform: translateX(0); }
+}
+
+@keyframes slideOutRight {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(100%); }
+}
+
+@keyframes letterReveal {
+  0% {
+    opacity: 0;
+    transform: translateY(24px) scale(0.92);
+    filter: blur(12px);
+    text-shadow: 0 0 40px rgba(0, 255, 65, 1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: translateY(-2px) scale(1.04);
+    filter: blur(2px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+    text-shadow: 0 0 20px rgba(0, 255, 65, 0.85), 0 0 45px rgba(0, 255, 65, 0.45);
+  }
+}
+
+@keyframes letterGlitch {
+  0%, 100% {
+    transform: translate(0, 0);
+  }
+  20% {
+    transform: translate(-2px, 1px);
+    text-shadow: -2px 0 #00d9ff, 2px 0 #00ff41;
+  }
+  40% {
+    transform: translate(2px, -1px);
+    text-shadow: 2px 0 #00d9ff, -2px 0 #00ff41;
+  }
+  60% {
+    transform: translate(-1px, 2px);
+  }
+  80% {
+    transform: translate(1px, -1px);
+  }
+}
+
+@keyframes dissolveThrough {
+  0% {
+    opacity: 1;
+    mask-position: 0% 0%;
+    -webkit-mask-position: 0% 0%;
+  }
+  50% {
+    opacity: 0.65;
+  }
+  100% {
+    opacity: 0;
+    mask-position: 0% 100%;
+    -webkit-mask-position: 0% 100%;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes glowPulse {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(0, 255, 65, 0.4), 0 0 30px rgba(0, 217, 255, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 35px rgba(0, 255, 65, 0.85), 0 0 50px rgba(0, 217, 255, 0.4);
+  }
+}
+
+@keyframes scanlineAnim {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(1000%); }
+}
+
+/* Layer 2: Blackout cinematic frames */
+.cinematic-frame {
+  background: #000000;
+  box-shadow: inset 0 0 60px rgba(0, 255, 65, 0.28);
+  pointer-events: none;
+  will-change: transform;
+}
+
+.cinematic-frame-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 15vh;
+}
+
+.cinematic-frame-bottom {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100vw;
+  height: 15vh;
+}
+
+.cinematic-frame-left {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 10vw;
+  height: 100vh;
+}
+
+.cinematic-frame-right {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 10vw;
+  height: 100vh;
+}
+
+/* Logo Reveal & Dissolve typography */
+.forensiq-logo-letter {
+  display: inline-block;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Orbitron', monospace;
+  font-size: clamp(2.5rem, 9.5vw, 7.5rem);
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #ffffff;
+  user-select: none;
+  will-change: transform, opacity, filter;
+}
+
+/* Glowing text mask revealing the animated UI underbelly */
+.forensiq-mask-window {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.forensiq-through-mask {
+  background: linear-gradient(135deg, #00ff41 0%, #00d9ff 50%, #ffffff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 25px rgba(0, 255, 65, 0.7));
+}
+
+/* Radar scanline line */
+.forensiq-scanline {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(0, 255, 65, 0.8), rgba(0, 217, 255, 0.9), transparent);
+  box-shadow: 0 0 15px rgba(0, 255, 65, 0.8);
+  animation: scanlineAnim 3s linear infinite;
+  pointer-events: none;
+}
+
+/* Respect user preferences */
+@media (prefers-reduced-motion: reduce) {
+  .cinematic-frame,
+  .forensiq-logo-letter,
+  .forensiq-scanline {
+    animation: none !important;
+    transition: none !important;
+  }
+}
