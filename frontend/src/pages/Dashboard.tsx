@@ -4,7 +4,8 @@ import {
   AlertTriangle, ScanLine, Hash,
   Image as ImageIcon, RefreshCw, ChevronRight,
   Fingerprint, Radio, Database, Shield, Eye, AlertCircle,
-  FileText, Sparkles, Check, X, ExternalLink, Lock, Cpu
+  FileText, Sparkles, Check, X, ExternalLink, Lock, Cpu,
+  Camera, Monitor, Scissors, HelpCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDropzone } from 'react-dropzone';
@@ -33,6 +34,17 @@ export interface SimplifiedReport {
   hidden_code_found?: string | null;
   limitations?: string;
   technical_details_available?: boolean;
+
+  // TruthLens Verdict Wording System fields
+  headline?: string;
+  flag?: 'GREEN' | 'AMBER' | 'RED';
+  tamper_percent?: number;
+  origin_class?: 'NATURAL_CAPTURE' | 'SCREEN_RECAPTURE' | 'EDITED_SPLICED' | 'AI_GENERATED' | 'UNCERTAIN';
+  origin_label?: string;
+  icon?: string;
+  confidence?: string;
+  plain_english?: string;
+  human_review?: string;
 }
 
 export interface RecaptureAnalysis {
@@ -734,104 +746,115 @@ export default function Dashboard() {
                   <ShaFingerprint hash={analysisResult.evidence_fingerprint || analysisResult.metadata.sha256} />
                 </div>
 
-                {/* 2. Red/Green Flag Instant Visual Verdict & Plain English Investigator Report */}
-                {analysisResult.simplified_report && (
-                  <div
-                    className={cn(
-                      'glass-card-verdict p-5 rounded-2xl border transition-all shadow-xl',
-                      analysisResult.simplified_report.verdict === 'GREEN_FLAG'
-                        ? 'bg-emerald-950/40 border-emerald-500/50 shadow-emerald-950/20'
-                        : analysisResult.simplified_report.verdict === 'RED_FLAG'
-                        ? 'bg-rose-950/40 border-rose-500/50 shadow-rose-950/20'
-                        : 'bg-amber-950/40 border-amber-500/50 shadow-amber-950/20'
-                    )}
-                  >
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="w-10 h-10 rounded-xl flex items-center justify-center text-xl font-bold font-mono text-white shadow-lg"
-                          style={{ backgroundColor: analysisResult.simplified_report.flag_color }}
-                        >
-                          {analysisResult.simplified_report.flag_icon}
+                {/* 2. Red/Green/Amber Flag Instant Visual Verdict & Origin Wording System */}
+                {analysisResult.simplified_report && (() => {
+                  const rep = analysisResult.simplified_report;
+                  const flag: 'GREEN' | 'AMBER' | 'RED' = rep?.flag || (
+                    rep?.verdict === 'GREEN_FLAG' ? 'GREEN' : rep?.verdict === 'RED_FLAG' ? 'RED' : 'AMBER'
+                  );
+                  const headline = rep?.headline || (
+                    flag === 'GREEN' ? 'Clean' : flag === 'AMBER' ? 'Low suspicion' : 'Suspicious'
+                  );
+                  const tamperPercent = typeof rep?.tamper_percent === 'number'
+                    ? rep.tamper_percent
+                    : analysisResult.tamperProbability;
+
+                  const isRecap = analysisResult.recapture_analysis?.is_recaptured;
+                  const originLabel = rep?.origin_label || (
+                    isRecap
+                      ? 'Screen re-capture (screenshot / photo of a display)'
+                      : analysisResult.verdict === 'Spliced / Edited'
+                      ? 'Edited / spliced image'
+                      : analysisResult.verdict === 'Likely AI-Generated'
+                      ? 'AI-generated (synthetic)'
+                      : 'Natural camera photo'
+                  );
+
+                  const iconName = rep?.icon || (
+                    isRecap ? 'monitor' : analysisResult.verdict === 'Spliced / Edited' ? 'scissors' : analysisResult.verdict === 'Likely AI-Generated' ? 'sparkles' : 'camera'
+                  );
+
+                  const confidence = rep?.confidence || rep?.confidence_level || 'HIGH';
+                  const plainEnglish = rep?.plain_english || rep?.simple_explanation || 'Your image analysis is complete.';
+                  const humanReview = rep?.human_review || 'Automated indicator only — a human investigator makes the final call.';
+
+                  return (
+                    <div className="neo-raised p-6 space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <span className={cn('flag', `flag-${flag}`)}>
+                            {flag} FLAG
+                          </span>
+                          <span className="text-xs font-mono text-slate-400">
+                            Confidence: <strong className="text-slate-200">{confidence}</strong>
+                          </span>
                         </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span
-                              className="text-xs font-bold font-mono uppercase tracking-wider px-2 py-0.5 rounded border"
-                              style={{
-                                color: analysisResult.simplified_report.flag_color,
-                                borderColor: `${analysisResult.simplified_report.flag_color}40`,
-                                backgroundColor: `${analysisResult.simplified_report.flag_color}15`,
-                              }}
-                            >
-                              {analysisResult.simplified_report.verdict.replace('_', ' ')}
-                            </span>
-                            <span className="text-xs text-slate-400 font-mono">
-                              Confidence: <strong className="text-slate-200">{analysisResult.simplified_report.confidence_level}</strong>
-                            </span>
+
+                        {/* Investigator Mode Toggle: Soft Cyber Neomorphic Inset Track + Raised Knob */}
+                        <div className="neo-inset p-1.5 rounded-2xl flex items-center gap-1.5 self-stretch sm:self-auto justify-center">
+                          <button
+                            type="button"
+                            onClick={() => setInvestigatorMode('simplified')}
+                            className={cn(
+                              'px-4 py-1.5 rounded-xl text-xs font-semibold font-mono transition-all min-h-[32px]',
+                              investigatorMode === 'simplified'
+                                ? 'neo-raised text-cyan-300 shadow-md'
+                                : 'text-slate-400 hover:text-slate-200'
+                            )}
+                          >
+                            Plain English
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setInvestigatorMode('technical')}
+                            className={cn(
+                              'px-4 py-1.5 rounded-xl text-xs font-semibold font-mono transition-all min-h-[32px]',
+                              investigatorMode === 'technical'
+                                ? 'neo-raised text-cyan-300 shadow-md'
+                                : 'text-slate-400 hover:text-slate-200'
+                            )}
+                          >
+                            Technical Jargon
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Headline + the % RIGHT BELOW IT, always */}
+                      <div>
+                        <h2 className="text-2xl font-bold text-white tracking-tight">{headline}</h2>
+                        <p className="font-mono text-sm text-cyan-300 mt-1">
+                          Tamper probability: <b className="text-white text-base font-bold">{tamperPercent}%</b>
+                        </p>
+                      </div>
+
+                      {/* Origin class chip — answers "natural or capture or edited?" instantly */}
+                      <div className="inline-flex items-center gap-2 px-3.5 py-1.5 neo-badge text-xs">
+                        {iconName === 'camera' && <Camera className="w-4 h-4 text-emerald-400" />}
+                        {iconName === 'monitor' && <Monitor className="w-4 h-4 text-cyan-400" />}
+                        {iconName === 'scissors' && <Scissors className="w-4 h-4 text-rose-400" />}
+                        {iconName === 'sparkles' && <Sparkles className="w-4 h-4 text-purple-400" />}
+                        {iconName === 'help' && <HelpCircle className="w-4 h-4 text-amber-400" />}
+                        <span className="text-slate-200 font-sans font-medium">{originLabel}</span>
+                      </div>
+
+                      {/* Plain English summary / Technical Jargon in neo-inset well */}
+                      <div className="neo-inset p-4.5 rounded-xl text-sm text-slate-300 leading-relaxed font-sans">
+                        {investigatorMode === 'simplified' ? (
+                          <p>{plainEnglish}</p>
+                        ) : (
+                          <div className="space-y-1.5 font-mono text-xs text-slate-300">
+                            <p className="text-cyan-300 font-semibold">[TECHNICAL TELEMETRY BREAKDOWN]</p>
+                            <p>• Sensor &amp; ELA Telemetry: Spatial patch deviation = {analysisResult.signals?.spatial_patch_std ?? 'N/A'}</p>
+                            <p>• High-frequency residual differential: {analysisResult.signals?.ela_variance_pct ?? 'N/A'}%</p>
+                            <p>• GAN Discriminator effective score: {analysisResult.signals?.gan_effective_pct ?? 'N/A'}% via model {analysisResult.classificationModel}</p>
                           </div>
-                          <h3 className="text-base sm:text-lg font-bold text-white mt-1">
-                            {analysisResult.simplified_report.status_message}
-                          </h3>
-                        </div>
+                        )}
                       </div>
 
-                      {/* Investigator Mode Toggle: Soft Cyber Neomorphic Inset Track + Raised Knob */}
-                      <div className="neo-inset p-1.5 rounded-2xl flex items-center gap-1.5 self-stretch sm:self-auto justify-center">
-                        <button
-                          type="button"
-                          onClick={() => setInvestigatorMode('simplified')}
-                          className={cn(
-                            'px-4 py-1.5 rounded-xl text-xs font-semibold font-mono transition-all min-h-[32px]',
-                            investigatorMode === 'simplified'
-                              ? 'neo-raised text-cyan-300 shadow-md'
-                              : 'text-slate-400 hover:text-slate-200'
-                          )}
-                        >
-                          Plain English
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setInvestigatorMode('technical')}
-                          className={cn(
-                            'px-4 py-1.5 rounded-xl text-xs font-semibold font-mono transition-all min-h-[32px]',
-                            investigatorMode === 'technical'
-                              ? 'neo-raised text-cyan-300 shadow-md'
-                              : 'text-slate-400 hover:text-slate-200'
-                          )}
-                        >
-                          Technical Jargon
-                        </button>
-                      </div>
+                      <p className="text-[11px] text-slate-500 italic font-sans">{humanReview}</p>
                     </div>
-
-                    {/* Key Finding & Explanation */}
-                    <div className="pt-4 space-y-3">
-                      <div className="p-3 rounded-xl bg-black/40 border border-white/10 flex items-start gap-2.5">
-                        <Sparkles className="w-4 h-4 text-indigo-400 flex-shrink-0 mt-0.5" />
-                        <div>
-                          <p className="text-[11px] font-mono uppercase tracking-wider text-indigo-300 font-semibold">
-                            Primary Finding
-                          </p>
-                          <p className="text-sm font-semibold text-white mt-0.5">
-                            {analysisResult.simplified_report.key_finding}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 space-y-1.5">
-                        <p className="text-[11px] font-mono uppercase tracking-wider text-slate-400 font-semibold">
-                          Investigator Summary (Plain English)
-                        </p>
-                        <p className="text-sm text-slate-200 leading-relaxed">
-                          {investigatorMode === 'simplified'
-                            ? analysisResult.simplified_report.simple_explanation
-                            : `Sensor & ELA telemetry indicates spatial patch deviation of ${analysisResult.signals?.spatial_patch_std ?? 'N/A'}, high-frequency residual quantization differential of ${analysisResult.signals?.ela_variance_pct ?? 'N/A'}%, and GAN discriminator score of ${analysisResult.signals?.gan_effective_pct ?? 'N/A'}% via model ${analysisResult.classificationModel}.`}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* 3. Screenshot Re-Capture Resilience Alert */}
                 {analysisResult.recapture_analysis?.is_recaptured && (
