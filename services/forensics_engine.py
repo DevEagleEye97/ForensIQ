@@ -68,6 +68,17 @@ class SimplifiedReportContract(BaseModel):
     limitations: Optional[str] = None
     technical_details_available: bool = True
 
+    # TruthLens Verdict Wording System additions
+    headline: Optional[str] = None
+    flag: Optional[str] = None             # "GREEN", "AMBER", "RED"
+    tamper_percent: Optional[float] = None # ALWAYS rendered under headline
+    origin_class: Optional[str] = None    # "NATURAL_CAPTURE", "SCREEN_RECAPTURE", etc.
+    origin_label: Optional[str] = None    # e.g. "Screen re-capture (screenshot / photo of a display)"
+    icon: Optional[str] = None            # "camera", "monitor", "scissors", "sparkles", "help"
+    confidence: Optional[str] = None      # "HIGH", "MEDIUM", "LOW"
+    plain_english: Optional[str] = None   # Direct wording: "Your image is..."
+    human_review: Optional[str] = None    # "Automated indicator only — a human investigator makes the final call."
+
     model_config = ConfigDict(populate_by_name=True)
 
 
@@ -1128,17 +1139,44 @@ def generate_simplified_report(
         "Original high-resolution camera file required for definitive sensor verification."
     ) if flag == "NEEDS_REVIEW" else None
 
+    # TruthLens Verdict Wording System — Calibrated Origin Classification
+    from services.consensus import infer_origin_class, build_verdict
+
+    has_camera = bool(decompiled.get("camera_exif")) if decompiled else False
+    origin = infer_origin_class(
+        tamper_pct=float(tamper_probability),
+        verdict=verdict,
+        is_recaptured=recapture.is_recaptured,
+        has_ai_sig=bool(hidden_code),
+        ela_status=checks.frequencyAnomaly,
+        spatial_status=checks.spatialArtifact,
+        gan_status=checks.ganFingerprint,
+        has_camera_exif=has_camera
+    )
+    v_data = build_verdict(origin, float(tamper_probability), str(conf_level))
+
     return SimplifiedReportContract(
-        verdict=flag,
-        flag_color=color,
-        flag_icon=icon,
-        status_message=status_msg,
-        simple_explanation=explanation,
-        key_finding=key_finding,
+        verdict=v_data["verdict"],
+        flag_color=v_data["flag_color"],
+        flag_icon=v_data["flag_icon"],
+        status_message=v_data["status_message"],
+        simple_explanation=v_data["plain_english"],
+        key_finding=v_data["key_finding"],
         confidence_level=conf_level,
         hidden_code_found=hidden_code,
         limitations=limitations,
-        technical_details_available=True
+        technical_details_available=True,
+
+        # New Verdict Wording System fields
+        headline=v_data["headline"],
+        flag=v_data["flag"],
+        tamper_percent=v_data["tamper_percent"],
+        origin_class=v_data["origin_class"],
+        origin_label=v_data["origin_label"],
+        icon=v_data["icon"],
+        confidence=str(conf_level),
+        plain_english=v_data["plain_english"],
+        human_review=v_data["human_review"],
     )
 
 

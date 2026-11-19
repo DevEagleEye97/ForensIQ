@@ -495,9 +495,12 @@ async def analyze_image_evidence(
 
     # ── Classification model label ────────────────────────────────────────────
     if hf_score is not None and t3_score is not None:
-        classification_model = "prithivMLmods/Deep-Fake-Detector-v2-Model + OpenRouter Vision Ensemble"
+        if "Local Neural Spectral" in str(hf_obs) or "Local Neural Spectral" in str(t3_obs):
+            classification_model = "ViT-V2 Neural Spectral Classifier (Local 2D-FFT Ensemble)"
+        else:
+            classification_model = "prithivMLmods/Deep-Fake-Detector-v2-Model + OpenRouter Vision Ensemble"
     elif hf_score is not None:
-        classification_model = "prithivMLmods/Deep-Fake-Detector-v2-Model"
+        classification_model = "ViT-V2 Neural Spectral Classifier (Local 2D-FFT)" if "Local Neural Spectral" in str(hf_obs) else "prithivMLmods/Deep-Fake-Detector-v2-Model"
     elif t3_score is not None:
         classification_model = "OpenRouter Vision Model"
     else:
