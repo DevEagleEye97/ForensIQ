@@ -1,63 +1,29 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "services": {
-    "app": {
-      "root": ".",
-      "framework": "fastapi"
-    },
-    "frontend": {
-      "root": "frontend",
-      "framework": "vite"
-    }
-  },
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": {
-        "service": "app"
-      }
+      "destination": "/api/index.py"
     },
     {
       "source": "/health",
-      "destination": {
-        "service": "app"
-      }
+      "destination": "/api/index.py"
     },
     {
       "source": "/docs",
-      "destination": {
-        "service": "app"
-      }
+      "destination": "/api/index.py"
     },
     {
       "source": "/openapi.json",
-      "destination": {
-        "service": "app"
-      }
+      "destination": "/api/index.py"
     },
     {
       "source": "/redoc",
-      "destination": {
-        "service": "app"
-      }
-    },
-    {
-      "source": "/pages",
-      "destination": {
-        "service": "frontend"
-      }
-    },
-    {
-      "source": "/pages/(.*)",
-      "destination": {
-        "service": "frontend"
-      }
+      "destination": "/api/index.py"
     },
     {
       "source": "/(.*)",
-      "destination": {
-        "service": "frontend"
-      }
+      "destination": "/frontend/$1"
     }
   ]
 }

@@ -431,6 +431,17 @@ async def analyze_image_evidence(
     _ = perceptual_hash(sha256_hex, file_bytes)
 
     # ── Steps 2 & 5: Run 4-Check Analytical Engine + AI Concurrently (Efficiency Upgrade) ──
+    meta_fallback = MetadataContract(
+        sha256=sha256_hex,
+        format=mime_type.split("/")[-1].upper(),
+        size=f"{file_size / 1024:.1f} KB",
+        camera="Unknown",
+        gps="Not available",
+        modified="Not recorded",
+        software="None",
+        fileStructure="Valid",
+    )
+
     async with httpx.AsyncClient() as client:
         hf_task = query_huggingface_classifier(client, file_bytes, mime_type)
         t3_task = query_openrouter_vision(client, file_bytes, mime_type)
@@ -442,10 +453,10 @@ async def analyze_image_evidence(
             (hf_score, hf_obs),
             (t3_score, t3_verdict, t3_obs),
         ) = await asyncio.gather(
-            cpu(parse_image_bytes, file_bytes),
-            cpu(run_spatial_artifact_scan, file_bytes),
-            cpu(run_frequency_anomaly_ela, file_bytes, 90, mime_type),
-            cpu(run_metadata_integrity, file_bytes, mime_type, file_size),
+            safe(cpu(parse_image_bytes, file_bytes), {"format": None, "markers": [], "generator_signature": None, "camera_exif": {}, "software_signature": None, "c2pa_manifest": False, "png_text_chunks": [], "decompiled_clues": []}, 5.0),
+            safe(cpu(run_spatial_artifact_scan, file_bytes), ("Warn", 0.0, ["Spatial scan deferred"]), 5.0),
+            safe(cpu(run_frequency_anomaly_ela, file_bytes, 90, mime_type), ("Warn", 0.0, "Standard", None, ["Frequency scan deferred"]), 5.0),
+            safe(cpu(run_metadata_integrity, file_bytes, mime_type, file_size), ("Warn", meta_fallback, ["Metadata extraction deferred"]), 5.0),
             safe(hf_task, (None, None), 5.0),
             safe(t3_task, (None, None, []), 8.0),
         )
@@ -544,9 +555,17 @@ async def analyze_image_evidence(
         case_id_returned = None
 
     # ── Step 8: TruthLens Re-Capture & Plain English Simplification ───────────
-    recapture_analysis = await cpu(
-        detect_screenshot_recapture, file_bytes, mime_type, metadata_contract.camera
-    )
+    try:
+        recapture_analysis = await cpu(
+            detect_screenshot_recapture, file_bytes, mime_type, metadata_contract.camera
+        )
+    except Exception as exc:
+        logger.warning("[RECAPTURE] Screenshot detection failed: %s", exc)
+        recapture_analysis = RecaptureAnalysisResult(
+            is_recaptured=False,
+            recapture_confidence=0,
+            signals_detected=[]
+        )
     if recapture_analysis.is_recaptured:
         all_anomalies.insert(
             0,
@@ -566,14 +585,25 @@ async def analyze_image_evidence(
         ganFingerprint=gan_status,
     )
 
-    simplified_report = generate_simplified_report(
-        tamper_probability=tamper_probability,
-        verdict=verdict,
-        checks=checks_contract,
-        recapture=recapture_analysis,
-        anomalies=all_anomalies,
-        decompiled=decompiled,
-    )
+    try:
+        simplified_report = generate_simplified_report(
+            tamper_probability=tamper_probability,
+            verdict=verdict,
+            checks=checks_contract,
+            recapture=recapture_analysis,
+            anomalies=all_anomalies,
+            decompiled=decompiled,
+        )
+    except Exception as exc:
+        logger.warning("[SIMPLIFIED_REPORT] Report generation failed: %s", exc)
+        simplified_report = generate_simplified_report(
+            tamper_probability=tamper_probability,
+            verdict=verdict,
+            checks=checks_contract,
+            recapture=recapture_analysis,
+            anomalies=all_anomalies,
+            decompiled={},
+        )
 
     # Build optional signals object with real measured numbers
     signals = {

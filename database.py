@@ -13,7 +13,9 @@ from sqlalchemy import text
 
 logger = logging.getLogger("forensiq.database")
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./forensiq_vault.db")
+is_vercel = bool(os.getenv("VERCEL") or os.getenv("AWS_LAMBDA_FUNCTION_NAME"))
+default_sqlite_path = "/tmp/forensiq_vault.db" if is_vercel else "./forensiq_vault.db"
+DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite+aiosqlite:///{default_sqlite_path}")
 
 # Normalize PostgreSQL URLs for SQLAlchemy asyncpg driver if provided by Supabase
 if DATABASE_URL.startswith("postgres://"):
@@ -64,10 +66,13 @@ async def init_db() -> None:
     """
     Initialize SQLite evidence vault table according to exact specification.
     """
-    async with engine.begin() as conn:
-        for stmt in SCHEMA_STATEMENTS:
-            await conn.execute(text(stmt))
-    logger.info("[VAULT] Asynchronous evidence database initialized successfully.")
+    try:
+        async with engine.begin() as conn:
+            for stmt in SCHEMA_STATEMENTS:
+                await conn.execute(text(stmt))
+        logger.info("[VAULT] Asynchronous evidence database initialized successfully.")
+    except Exception as exc:
+        logger.warning("[VAULT] Database initialization deferred or read-only: %s", exc)
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
