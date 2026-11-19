@@ -393,3 +393,95 @@ async def analyze_image_evidence(
         classificationModel=classification_model,
         fallbackMode=fallback_mode,
     )
+
+
+# ==============================================================================
+# NEW: /api/analyze/document — Multi-Format Evidence Ingestion via MarkItDown
+# Ingests PDF, DOCX, XLSX, PPTX, HTML, CSV, TXT into structured Markdown
+# ==============================================================================
+
+from services.document_converter import document_converter
+from models import DocumentAnalysisResponse
+
+
+@router.post(
+    "/analyze/document",
+    response_model=DocumentAnalysisResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Multi-Format Forensic Document Ingestion",
+    description="Powered by Microsoft MarkItDown. Converts PDF, DOCX, XLSX, PPTX, CSV, HTML, and text evidence into structured Markdown with cryptographic chain-of-custody."
+)
+async def analyze_document_evidence(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db)
+) -> DocumentAnalysisResponse:
+    """
+    Ingests and parses document evidence (PDF, DOCX, XLSX, PPTX, CSV, HTML, TXT)
+    using Microsoft MarkItDown, generates SHA-256 fingerprint, and archives to vault.
+    """
+    file_bytes = await file.read()
+    file_size = len(file_bytes)
+
+    if file_size > MAX_FILE_SIZE_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="Payload Too Large: Document exceeds maximum forensic threshold of 25MB."
+        )
+
+    filename = sanitize_text(file.filename or "document.bin", max_length=120)
+
+    try:
+        doc_result = document_converter.convert_bytes(file_bytes, filename=filename)
+    except Exception as exc:
+        logger.error("[DOCUMENT] Conversion error: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Unable to parse document: {str(exc)}"
+        )
+
+    sha256_hex = doc_result["sha256"]
+    timestamp_prefix = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+    case_id = f"DOC-{timestamp_prefix}-{sha256_hex[:8].upper()}"
+    timestamp_iso = datetime.now(timezone.utc).isoformat()
+
+    try:
+        from sqlalchemy import select as _select
+        stmt = _select(EvidenceVault).where(EvidenceVault.file_hash == sha256_hex)
+        res = await db.execute(stmt)
+        existing = res.scalar_one_or_none()
+
+        if existing:
+            case_id = existing.case_id
+        else:
+            vault_entry = EvidenceVault(
+                case_id=case_id,
+                file_name=filename,
+                file_hash=sha256_hex,
+                file_size_bytes=file_size,
+                mime_type="application/octet-stream",
+                tamper_probability=0,
+                verdict="Documentary Evidence Indexed",
+                classification_model="Microsoft MarkItDown Ingestion Engine",
+                exif_software=None,
+                camera_make=None,
+                anomalies_json=json.dumps([f"Document converted ({doc_result['word_count']} words, {doc_result['character_count']} chars)"]),
+                ela_base64_preview=None,
+                timestamp_utc=datetime.now(timezone.utc),
+            )
+            db.add(vault_entry)
+            await db.commit()
+    except Exception as db_exc:
+        await db.rollback()
+        logger.warning("[DOCUMENT] DB archiving skipped: %s", db_exc)
+
+    return DocumentAnalysisResponse(
+        case_id=case_id,
+        filename=filename,
+        sha256=sha256_hex,
+        file_size_bytes=file_size,
+        title=doc_result["title"],
+        markdown_content=doc_result["markdown_content"],
+        character_count=doc_result["character_count"],
+        word_count=doc_result["word_count"],
+        timestamp_utc=timestamp_iso,
+    )

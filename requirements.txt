@@ -11,11 +11,14 @@ numpy==1.26.4                # Fast pixel array transformations and mathematics
 # --- File Triage & Deep Metadata Forensics ---
 exifread==3.0.0              # Pure Python library to read camera sensor and software headers
 filetype==1.2.0              # Detects true MIME type from file magic bytes (stops extension spoofing)
+markitdown>=0.1.9            # Microsoft MarkItDown: multi-format document to Markdown converter
 
 # --- Database & Evidence Vault ---
 aiosqlite>=0.20.0            # Async SQLite driver for zero-blocking queries
 sqlalchemy>=2.0.0            # SQL toolkit & ORM for parameterized secure queries
 greenlet>=3.0.0              # Required for SQLAlchemy asyncio extension
 
-# --- Environment & Security ---
+# --- Security, Rate Limiting & Reliability ---
+slowapi>=0.1.10              # IP-based rate limiting
+sentry-sdk[fastapi]>=2.75.0   # Error tracking & observability
 python-dotenv==1.0.1         # Secure loading of API keys from a local .env file

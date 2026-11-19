@@ -116,3 +116,15 @@ class SystemStatusResponse(BaseModel):
     database: Dict[str, Any]
     api_latencies: Dict[str, Any]
     resilience_mode: str
+
+
+class DocumentAnalysisResponse(BaseModel):
+    case_id: str
+    filename: str
+    sha256: str
+    file_size_bytes: int
+    title: str
+    markdown_content: str
+    character_count: int
+    word_count: int
+    timestamp_utc: str
