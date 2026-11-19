@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import {
   ShieldCheck, LayoutDashboard, History,
   Bell, Search, Menu, X, ChevronDown,
-  ExternalLink, FileBarChart2, Lock, Scale, Compass, Database, Github,
-  GitCompare, Video, Mic, ShieldAlert
+  ExternalLink, Lock, Scale, Compass, Database, Github,
+  GitCompare, Video, Mic, ShieldAlert, Users
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../lib/utils';
@@ -22,6 +22,7 @@ export type Page =
   | 'privacy'
   | 'terms'
   | 'pages'
+  | 'team'
   | 'not-found';
 
 interface AppHeaderProps {
@@ -37,8 +38,8 @@ const navItems = [
   { id: 'audio' as Page, label: 'Audio', icon: Mic },
   { id: 'threat-intel' as Page, label: 'Threat Intel', icon: ShieldAlert },
   { id: 'history' as Page, label: 'Evidence Vault', icon: History },
-  { id: 'reports' as Page, label: 'Dossiers', icon: FileBarChart2 },
-  { id: 'pages' as Page, label: 'Pages Hub', icon: Compass },
+  { id: 'team' as Page, label: 'Team', icon: Users },
+  { id: 'pages' as Page, label: 'Hub', icon: Compass },
 ];
 
 export default function AppHeader({ activePage, onNavigate, onGoHome }: AppHeaderProps) {
@@ -135,6 +136,14 @@ export default function AppHeader({ activePage, onNavigate, onGoHome }: AppHeade
 
           {/* Right Controls */}
           <div className="flex items-center gap-2">
+            {activePage !== 'dashboard' && (
+              <button
+                onClick={() => onNavigate('dashboard')}
+                className="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-slate-950 font-mono text-xs font-bold transition-all shadow-md shadow-cyan-500/20 active:scale-95"
+              >
+                <span>Launch Workbench</span>
+              </button>
+            )}
 
             <button
               onClick={() => setSearchOpen((v) => !v)}

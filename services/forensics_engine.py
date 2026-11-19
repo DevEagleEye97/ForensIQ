@@ -210,12 +210,18 @@ def parse_image_bytes(raw: bytes) -> Dict[str, Any]:
                     break
                 i += 2
                 continue
+            if marker in range(0xD0, 0xD8) or marker == 0x00:  # RST0..RST7 / byte stuffing have no length
+                i += 2
+                continue
             if i + 4 > raw_len:
                 break
             try:
                 seg_len = struct.unpack(">H", raw[i+2:i+4])[0]
             except Exception:
                 break
+            if seg_len < 2:
+                i += 2
+                continue
             payload = raw[i+4:min(raw_len, i+2+seg_len)].decode("latin-1", "ignore").lower()
             out["markers"].append(f"FF{marker:02X}")
             if marker in (0xE1, 0xEB, 0xEC):          # APP1/APP11/APP12 = EXIF/XMP/C2PA

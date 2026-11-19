@@ -11,6 +11,8 @@ import ComparePage from './pages/ComparePage';
 import TemporalVideoPage from './pages/TemporalVideoPage';
 import VoiceAudioPage from './pages/VoiceAudioPage';
 import ThreatIntelPage from './pages/ThreatIntelPage';
+import TeamSection from './components/TeamSection';
+import CookieBanner from './components/CookieBanner';
 import CinematicLoader from './components/CinematicLoader';
 import MatrixBackground from './components/MatrixBackground';
 import SmoothCursor from './components/SmoothCursor';
@@ -60,6 +62,9 @@ function resolveRouteFromPath(rawPath: string): { view: View; page: Page } {
   }
   if (path === '/settings' || path === '/pages/settings') {
     return { view: 'app', page: 'settings' };
+  }
+  if (path === '/team' || path === '/pages/team') {
+    return { view: 'app', page: 'team' };
   }
   
   return { view: 'app', page: 'not-found' };
@@ -164,6 +169,11 @@ export default function App() {
 
             {page === 'history' && <HistoryPage />}
             {page === 'reports' && <ReportsPage />}
+            {page === 'team' && (
+              <div className="flex-1 p-4 sm:p-6 lg:p-8">
+                <TeamSection />
+              </div>
+            )}
             {page === 'privacy' && <PrivacyPolicyPage onBack={() => navigateTo('dashboard')} />}
             {page === 'terms' && <TermsPage onBack={() => navigateTo('dashboard')} />}
             {page === 'not-found' && (
@@ -244,6 +254,9 @@ export default function App() {
               </a>
             </div>
           </footer>
+
+          {/* Privacy & Zero-Disk Session Banner */}
+          <CookieBanner onNavigate={navigateTo} />
         </div>
       )}
         </div>

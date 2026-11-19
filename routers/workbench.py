@@ -63,6 +63,17 @@ MAX_IMAGE_PIXELS = 40_000_000  # 40 MP decompression bomb guard
 _FORENSIC_CACHE: Dict[str, Tuple[datetime, ForensicImageAnalysisResponse]] = {}
 _ANALYZE_LEGACY_CACHE: Dict[str, Tuple[datetime, ForensicAnalysisResponse]] = {}
 _CACHE_TTL_SECONDS = 600  # 10 minutes TTL
+MAX_CACHE_ENTRIES = 200   # Bounded memory guard (Prevents DoS via memory exhaustion)
+
+def _cache_put(cache_dict: Dict[str, Any], key: str, value: Any) -> None:
+    """Bounded cache insertion with LRU eviction."""
+    if len(cache_dict) >= MAX_CACHE_ENTRIES:
+        try:
+            oldest = next(iter(cache_dict))
+            cache_dict.pop(oldest, None)
+        except StopIteration:
+            pass
+    cache_dict[key] = value
 
 
 async def _read_file_with_limit(file: UploadFile, max_bytes: int) -> bytes:
@@ -321,7 +332,7 @@ async def analyze_evidence(
         elaBase64=ela_base64,
         case_id=case_id_returned
     )
-    _ANALYZE_LEGACY_CACHE[sha256_hex] = (now, response_obj)
+    _cache_put(_ANALYZE_LEGACY_CACHE, sha256_hex, (now, response_obj))
     return response_obj
 
 
@@ -567,7 +578,7 @@ async def analyze_image_evidence(
         hidden_code_found=simplified_report.hidden_code_found,
         decompiled_markers=decompiled.get("markers"),
     )
-    _FORENSIC_CACHE[sha256_hex] = (now, response_obj)
+    _cache_put(_FORENSIC_CACHE, sha256_hex, (now, response_obj))
     return response_obj
 
 
@@ -651,6 +662,17 @@ async def analyze_document_evidence(
 
     filename = sanitize_text(file.filename or "document.bin", max_length=120)
 
+    allowed_doc_exts = {
+        ".pdf", ".docx", ".doc", ".xlsx", ".xls", ".pptx", ".ppt",
+        ".csv", ".html", ".htm", ".txt", ".json", ".md"
+    }
+    ext = "." + filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    if ext not in allowed_doc_exts:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail=f"Unsupported document format '{ext}'. Allowed: {', '.join(sorted(allowed_doc_exts))}."
+        )
+
     try:
         doc_result = document_converter.convert_bytes(file_bytes, filename=filename)
     except Exception as exc:
@@ -724,6 +746,9 @@ async def compare_evidence_images(
     """
     ref_bytes = await _read_file_with_limit(reference_file, MAX_FILE_SIZE_BYTES)
     sus_bytes = await _read_file_with_limit(suspect_file, MAX_FILE_SIZE_BYTES)
+
+    _guard_image_dimensions(ref_bytes)
+    _guard_image_dimensions(sus_bytes)
 
     # Validate magic bytes
     ref_kind = filetype.guess(ref_bytes)

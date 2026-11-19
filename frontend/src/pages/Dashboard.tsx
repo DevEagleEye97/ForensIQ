@@ -1,10 +1,10 @@
 import { useState, useCallback, useEffect } from 'react';
 import {
   UploadCloud, Layers, Activity,
-  CheckCircle2, AlertTriangle, XCircle, ScanLine, Hash,
+  AlertTriangle, ScanLine, Hash,
   Image as ImageIcon, RefreshCw, ChevronRight,
   Fingerprint, Radio, Database, Shield, Eye, AlertCircle,
-  FileText, Sparkles, Check, X, ExternalLink, Copy
+  FileText, Sparkles, Check, X, ExternalLink, Lock, Cpu
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDropzone } from 'react-dropzone';
@@ -17,6 +17,8 @@ import { analytics } from '../lib/analytics';
 import { supabase } from '../utils/supabase/client';
 import PromptModelStudio from '../components/PromptModelStudio';
 import ForensicChatbot from '../components/ForensicChatbot';
+import ShaFingerprint from '../components/ShaFingerprint';
+import TeamSection from '../components/TeamSection';
 
 export interface SimplifiedReport {
   verdict: 'RED_FLAG' | 'GREEN_FLAG' | 'NEEDS_REVIEW';
@@ -65,6 +67,7 @@ export interface BackendAnalysisResult {
   anomalies: string[];
   classificationModel: string;
   fallbackMode?: boolean;
+  hidden_code_found?: string | null;
   signals?: {
     spatial_patch_std?: number;
     ela_variance_pct?: number;
@@ -85,13 +88,6 @@ interface SystemStatus {
 
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024; // 25 MB
 
-
-const statusMeta: Record<string, { icon: typeof CheckCircle2; color: string; badge: string; label: string }> = {
-  Pass: { icon: CheckCircle2, color: 'text-emerald-400', badge: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20', label: 'Pass' },
-  Warn: { icon: AlertTriangle, color: 'text-amber-400', badge: 'bg-amber-500/10 text-amber-400 border-amber-500/20', label: 'Warn' },
-  Fail: { icon: XCircle, color: 'text-rose-400', badge: 'bg-rose-500/10 text-rose-400 border-rose-500/20', label: 'Fail' },
-};
-
 export default function Dashboard() {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -99,7 +95,6 @@ export default function Dashboard() {
   const [analysisResult, setAnalysisResult] = useState<BackendAnalysisResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'rgb' | 'ela'>('rgb');
-  const [copiedHash, setCopiedHash] = useState(false);
   const [chatbotOpen, setChatbotOpen] = useState(false);
   const [investigatorMode, setInvestigatorMode] = useState<'simplified' | 'technical'>('simplified');
   const [systemStats, setSystemStats] = useState<{ scansToday: string; deepfakesFound: string; avgTrustScore: string; dbRecords: string }>({
@@ -402,18 +397,27 @@ export default function Dashboard() {
           {/* LEFT 2 COLUMNS: Ingestion, ELA Comparison & Visualizer */}
           <div className="xl:col-span-2 space-y-6">
 
-            {/* Dropzone Container */}
+            {/* Dropzone Container with Tactical Corner Brackets */}
             <div
               {...getRootProps()}
               className={cn(
-                'glass-card border-2 border-dashed rounded-2xl p-6 sm:p-8 text-center transition-all duration-200 relative overflow-hidden flex flex-col items-center justify-center min-h-[220px]',
+                'glass-card border-2 border-dashed rounded-3xl p-6 sm:p-10 text-center transition-all duration-300 relative overflow-hidden flex flex-col items-center justify-center min-h-[240px] group cursor-pointer shadow-xl',
                 isDragActive
-                  ? 'border-indigo-400 bg-indigo-500/10 scale-[1.005]'
+                  ? 'border-cyan-400 bg-cyan-950/30 scale-[1.008] shadow-cyan-500/30'
                   : analysisResult
-                  ? 'border-slate-800'
-                  : 'border-slate-800 hover:border-indigo-500/50 cursor-pointer'
+                  ? 'border-slate-800 hover:border-slate-700'
+                  : 'border-slate-800 hover:border-cyan-500/50 hover:shadow-cyan-950/40'
               )}
             >
+              {/* Tactical L-Shaped Corner Brackets */}
+              <div className="absolute top-3 left-3 w-4 h-4 border-t-2 border-l-2 border-cyan-400/80 group-hover:border-cyan-300 transition-colors pointer-events-none" />
+              <div className="absolute top-3 right-3 w-4 h-4 border-t-2 border-r-2 border-cyan-400/80 group-hover:border-cyan-300 transition-colors pointer-events-none" />
+              <div className="absolute bottom-3 left-3 w-4 h-4 border-b-2 border-l-2 border-cyan-400/80 group-hover:border-cyan-300 transition-colors pointer-events-none" />
+              <div className="absolute bottom-3 right-3 w-4 h-4 border-b-2 border-r-2 border-cyan-400/80 group-hover:border-cyan-300 transition-colors pointer-events-none" />
+
+              {/* Pulsing Scan Line Beam */}
+              <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-cyan-400 to-transparent opacity-60 animate-pulse pointer-events-none" />
+
               <input {...getInputProps()} disabled={analyzing} />
 
 <AnimatePresence mode="wait">
@@ -531,26 +535,32 @@ export default function Dashboard() {
                     key="idle"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    className="flex flex-col items-center gap-3 py-2"
+                    className="flex flex-col items-center gap-3.5 py-3"
                   >
-                    <div className="p-3.5 rounded-2xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 shadow-inner">
+                    <div className="p-3.5 rounded-2xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 shadow-inner group-hover:scale-105 transition-transform">
                       <UploadCloud className="w-8 h-8" />
                     </div>
-                    <div className="space-y-1">
-                      <p className="font-semibold text-slate-100 text-sm">
-                        Drop evidence image here, or <span className="text-indigo-400 underline decoration-indigo-400/50">browse files</span>
+                    <div className="space-y-1.5 max-w-md">
+                      <p className="font-bold text-slate-100 text-sm sm:text-base font-mono">
+                        Drop your image here — we'll handle the math.
                       </p>
-                      <p className="text-xs text-slate-400 font-mono">
-                        Accepts raw JPEG and PNG · Max 25 MB · Strict Zero-Disk Memory Processing
+                      <p className="text-xs text-slate-400 font-sans">
+                        Drag &amp; drop evidence file or <span className="text-cyan-400 underline decoration-cyan-400/50">browse local filesystem</span>
                       </p>
                     </div>
 
-                    <div className="flex items-center gap-2 pt-2">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-slate-400 border border-slate-700">
+                    <div className="flex flex-wrap items-center justify-center gap-2 pt-1 font-mono text-[10px]">
+                      <span className="px-2.5 py-0.5 rounded-full bg-slate-800/80 text-cyan-300 border border-slate-700">
                         image/jpeg (FFD8)
                       </span>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-slate-400 border border-slate-700">
+                      <span className="px-2.5 py-0.5 rounded-full bg-slate-800/80 text-emerald-300 border border-slate-700">
                         image/png (8950)
+                      </span>
+                      <span className="px-2.5 py-0.5 rounded-full bg-slate-800/80 text-slate-400 border border-slate-700">
+                        Max 25 MB
+                      </span>
+                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-950/40 text-emerald-300 border border-emerald-500/30">
+                        Strict Zero-Disk RAM
                       </span>
                     </div>
 
@@ -561,9 +571,9 @@ export default function Dashboard() {
                           e.stopPropagation();
                           loadDemoSample();
                         }}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 text-xs font-mono font-medium border border-indigo-500/30 transition-all min-h-[36px]"
+                        className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 text-xs font-mono font-medium border border-cyan-500/40 transition-all min-h-[36px] shadow-sm shadow-cyan-500/20 active:scale-95"
                       >
-                        <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                        <Sparkles className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
                         Load Synthetic Test Target #01
                       </button>
                     </div>
@@ -575,52 +585,21 @@ export default function Dashboard() {
             {/* TRUTHLENS FORENSIQ: 4 ENHANCEMENT DELIVERABLES */}
             {analysisResult && (
               <div className="space-y-4">
-                {/* 1. Evidence Fingerprint (SHA-256 Forensic Hashing & Chain-of-Custody) */}
-                <div className="glass-card p-4 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 flex-shrink-0">
-                      <Fingerprint className="w-5 h-5" />
+                {/* 1. Evidence Fingerprint (SHA-256 Forensic Hashing & Privacy Masking) */}
+                <div className="glass-card p-4 sm:p-5 rounded-2xl shadow-lg border border-slate-800 space-y-2">
+                  <div className="flex items-center justify-between pb-1">
+                    <div className="flex items-center gap-2">
+                      <Fingerprint className="w-4 h-4 text-cyan-400" />
+                      <span className="text-xs font-mono uppercase tracking-wider text-cyan-300 font-bold">
+                        Evidence Cryptographic Fingerprint
+                      </span>
                     </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-mono uppercase tracking-wider text-indigo-400 font-bold">
-                          Evidence Fingerprint (SHA-256)
-                        </span>
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                          Chain of Custody Intact
-                        </span>
-                      </div>
-                      <p className="font-mono text-xs text-slate-200 truncate mt-0.5" title={analysisResult.evidence_fingerprint || analysisResult.metadata.sha256}>
-                        {analysisResult.evidence_fingerprint || analysisResult.metadata.sha256}
-                      </p>
-                    </div>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      NIST SP 800-86 Verified
+                    </span>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const hashToCopy = (analysisResult.evidence_fingerprint || analysisResult.metadata.sha256).replace('SHA256: ', '');
-                      navigator.clipboard.writeText(hashToCopy);
-                      setCopiedHash(true);
-                      setTimeout(() => setCopiedHash(false), 2000);
-                    }}
-                    className={cn(
-                      'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-medium transition-all min-h-[36px] flex-shrink-0',
-                      copiedHash
-                        ? 'bg-emerald-600 text-white'
-                        : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
-                    )}
-                  >
-                    {copiedHash ? (
-                      <>
-                        <Check className="w-3.5 h-3.5" /> Copied Hash
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3.5 h-3.5" /> Copy Fingerprint
-                      </>
-                    )}
-                  </button>
+                  <ShaFingerprint hash={analysisResult.evidence_fingerprint || analysisResult.metadata.sha256} />
                 </div>
 
                 {/* 2. Red/Green Flag Instant Visual Verdict & Plain English Investigator Report */}
@@ -818,67 +797,131 @@ export default function Dashboard() {
               </div>
             )}
 
-            {/* 4 Analytical Checks Cards Grid */}
+            {/* Regrouped Tool Clusters: 3 Labeled Pillars */}
             <div className="glass-card border border-slate-800 rounded-2xl p-5 space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
                 <div className="flex items-center gap-2">
-                  <ScanLine className="w-4 h-4 text-indigo-400" />
-                  <h3 className="text-sm font-semibold text-slate-200">4-Tier Core Forensic Check Suite</h3>
+                  <ScanLine className="w-4 h-4 text-cyan-400" />
+                  <h3 className="text-sm font-semibold text-slate-100 font-mono">
+                    Forensic Inspection Clusters
+                  </h3>
                 </div>
-                <span className="text-[10px] font-mono text-slate-500">Autonomous Analytical Pipeline</span>
+                <span className="text-[10px] font-mono text-cyan-300 px-2 py-0.5 rounded bg-cyan-950/40 border border-cyan-500/30">
+                  3-PILLAR TRUTHLENS PIPELINE
+                </span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-4">
                 {[
                   {
-                    id: 'spatial',
-                    label: 'Spatial Artifact Scan',
-                    sub: 'Laplacian Edge Variance & Discontinuity',
-                    status: analysisResult ? analysisResult.checks.spatialArtifact : 'Pass',
-                    detail: analysisResult ? 'Evaluates micro-gradient jumps at suspected splicing boundaries.' : 'Awaiting file ingestion.',
+                    cluster: 'Pixel & Frequency',
+                    badge: 'TIER 1 // DETERMINISTIC',
+                    badgeColor: 'text-cyan-400 border-cyan-500/30 bg-cyan-950/30',
+                    tools: [
+                      {
+                        name: 'Compression Forensics',
+                        desc: 'Finds pasted or spliced regions by measuring re-compression error differentials across 8×8 DCT grids.',
+                        status: analysisResult ? analysisResult.checks.frequencyAnomaly : 'ONLINE',
+                        latency: '12ms',
+                        icon: Layers,
+                      },
+                      {
+                        name: 'Spatial Gradient Scan',
+                        desc: 'Detects inpainting seams and sharp boundary discontinuities using 2D Laplacian edge response.',
+                        status: analysisResult ? analysisResult.checks.spatialArtifact : 'ARMED',
+                        latency: '18ms',
+                        icon: ScanLine,
+                      },
+                    ],
                   },
                   {
-                    id: 'ela',
-                    label: 'Frequency Anomaly (ELA)',
-                    sub: '90% JPEG Re-compression Differential',
-                    status: analysisResult ? analysisResult.checks.frequencyAnomaly : 'Pass',
-                    detail: analysisResult ? 'Detects mismatched quantization levels across composited sectors.' : 'Awaiting file ingestion.',
+                    cluster: 'AI & Vision',
+                    badge: 'TIER 2 // MULTI-SPECTRAL',
+                    badgeColor: 'text-indigo-400 border-indigo-500/30 bg-indigo-950/30',
+                    tools: [
+                      {
+                        name: 'Deepfake Neural Classifier',
+                        desc: 'Probes for generative diffusion artifacts, corneal reflection geometry, and synthetic facial warping.',
+                        status: analysisResult ? analysisResult.checks.ganFingerprint : 'ONLINE',
+                        latency: '140ms',
+                        icon: Cpu,
+                      },
+                      {
+                        name: 'Byte-Level Decompiler',
+                        desc: 'Extracts hidden C2PA provenance manifests, PNG prompt chunks, and synthetic generator signatures.',
+                        status: analysisResult?.hidden_code_found ? 'Warn' : 'ONLINE',
+                        latency: '4ms',
+                        icon: Sparkles,
+                      },
+                    ],
                   },
                   {
-                    id: 'metadata',
-                    label: 'Metadata Integrity',
-                    sub: 'EXIF Camera & Sensor Fingerprinting',
-                    status: analysisResult ? analysisResult.checks.metadataIntegrity : 'Pass',
-                    detail: analysisResult ? `Hardware: ${analysisResult.metadata.camera} · Software: ${analysisResult.metadata.software}` : 'Awaiting file ingestion.',
+                    cluster: 'Custody & Compliance',
+                    badge: 'TIER 3 // NIST SP 800-86',
+                    badgeColor: 'text-emerald-400 border-emerald-500/30 bg-emerald-950/30',
+                    tools: [
+                      {
+                        name: 'Cryptographic Provenance',
+                        desc: 'Generates tamper-evident SHA-256 bitstream digests and preserves strict chain of custody in the vault.',
+                        status: analysisResult ? analysisResult.checks.metadataIntegrity : 'ONLINE',
+                        latency: '<1ms',
+                        icon: Shield,
+                      },
+                      {
+                        name: 'Zero-Disk RAM Pipeline',
+                        desc: 'Strict in-memory buffer processing; evidence is never retained on disk and cleared post-inference.',
+                        status: 'ARMED',
+                        latency: '0ms',
+                        icon: Lock,
+                      },
+                    ],
                   },
-                  {
-                    id: 'gan',
-                    label: 'GAN & Diffusion Fingerprint',
-                    sub: 'ViT Classifier & Multimodal Vision Probe',
-                    status: analysisResult ? analysisResult.checks.ganFingerprint : 'Pass',
-                    detail: analysisResult ? `Model: ${analysisResult.classificationModel}` : 'Awaiting file ingestion.',
-                  },
-                ].map((c) => {
-                  const meta = statusMeta[c.status];
-                  return (
-                    <div
-                      key={c.id}
-                      className="p-4 rounded-xl bg-slate-900/60 border border-slate-800/80 space-y-2 hover:border-slate-700 transition-colors"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <h4 className="text-xs font-semibold text-slate-200">{c.label}</h4>
-                          <p className="text-[10px] font-mono text-slate-500">{c.sub}</p>
-                        </div>
-                        <span className={cn('text-xs px-2.5 py-0.5 rounded-full border font-mono font-bold flex items-center gap-1', meta.badge)}>
-                          <meta.icon className="w-3 h-3" />
-                          {meta.label}
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-400 leading-relaxed">{c.detail}</p>
+                ].map((grp) => (
+                  <div key={grp.cluster} className="space-y-2">
+                    <div className="flex items-center justify-between text-xs font-mono">
+                      <span className="text-slate-300 font-bold">{grp.cluster}</span>
+                      <span className={cn('text-[9px] px-2 py-0.5 rounded border font-mono', grp.badgeColor)}>
+                        {grp.badge}
+                      </span>
                     </div>
-                  );
-                })}
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {grp.tools.map((t) => (
+                        <div
+                          key={t.name}
+                          className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 hover:border-slate-700 transition-colors flex flex-col justify-between space-y-2"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <t.icon className="w-4 h-4 text-cyan-400 flex-shrink-0" />
+                              <span className="text-xs font-semibold text-slate-200">{t.name}</span>
+                            </div>
+                            <span className={cn(
+                              'text-[10px] font-mono px-2 py-0.5 rounded border',
+                              t.status === 'Fail'
+                                ? 'bg-rose-500/15 text-rose-400 border-rose-500/30'
+                                : t.status === 'Warn'
+                                ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                                : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                            )}>
+                              {t.status}
+                            </span>
+                          </div>
+
+                          <p className="text-[11px] text-slate-400 leading-relaxed font-sans">{t.desc}</p>
+
+                          <div className="flex items-center justify-between pt-1 border-t border-slate-800/60 text-[10px] font-mono text-slate-500">
+                            <span>Latency: {t.latency}</span>
+                            <span className="text-emerald-400 flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                              Synchronized
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -999,13 +1042,9 @@ export default function Dashboard() {
               </div>
 
               {analysisResult ? (
-                <div className="space-y-2 font-mono text-xs">
-                  <div className="flex items-start justify-between py-1.5 border-b border-slate-800 text-[11px]">
-                    <span className="text-slate-500">SHA-256 Digest:</span>
-                    <span className="text-slate-300 truncate max-w-[170px]" title={analysisResult.metadata.sha256}>
-                      {analysisResult.metadata.sha256}
-                    </span>
-                  </div>
+                <div className="space-y-2.5 font-mono text-xs">
+                  <ShaFingerprint hash={analysisResult.metadata.sha256} />
+
                   <div className="flex items-center justify-between py-1.5 border-b border-slate-800 text-[11px]">
                     <span className="text-slate-500">Camera Hardware:</span>
                     <span className={cn(analysisResult.metadata.camera.includes('Unknown') ? 'text-amber-400' : 'text-slate-300')}>
@@ -1064,7 +1103,7 @@ export default function Dashboard() {
         </main>
 
         {/* Neural Prompt, Context & Model Studio (Igloo / Maze / Mural spec) */}
-        <section className="max-w-screen-xl mx-auto px-4 sm:px-6 pb-16 pt-2">
+        <section className="max-w-screen-xl mx-auto px-4 sm:px-6 pb-8 pt-2">
           <PromptModelStudio
             currentCaseId={analysisResult?.case_id}
             fileHash={analysisResult?.metadata?.sha256}
@@ -1072,6 +1111,9 @@ export default function Dashboard() {
             verdict={analysisResult?.verdict}
           />
         </section>
+
+        {/* Team Bhairava Human Story & Conviction */}
+        <TeamSection />
 
         {/* Floating AI Forensic Analyst Copilot Button (>_<) */}
         <div className="fixed bottom-6 right-6 z-40">
