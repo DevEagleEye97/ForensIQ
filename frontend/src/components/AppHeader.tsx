@@ -3,7 +3,7 @@ import {
   ShieldCheck, LayoutDashboard, History,
   Bell, Search, Menu, X, ChevronDown,
   ExternalLink, Lock, Scale, Compass, Database, Github,
-  GitCompare, Video, Mic, ShieldAlert, Users
+  Video, Mic, ShieldAlert, Users
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../lib/utils';
@@ -35,9 +35,8 @@ interface AppHeaderProps {
 
 const navItems = [
   { id: 'dashboard' as Page, label: 'Workbench', icon: LayoutDashboard },
-  { id: 'compare' as Page, label: 'Compare', icon: GitCompare },
-  { id: 'video' as Page, label: 'Video', icon: Video, badge: 'v3.0' },
-  { id: 'audio' as Page, label: 'Audio', icon: Mic, badge: 'v3.0' },
+  { id: 'video' as Page, label: 'Video', icon: Video },
+  { id: 'audio' as Page, label: 'Audio', icon: Mic },
   { id: 'threat-intel' as Page, label: 'Threat Intel', icon: ShieldAlert },
   { id: 'history' as Page, label: 'Evidence Vault', icon: History },
   { id: 'team' as Page, label: 'Team', icon: Users },
@@ -124,11 +123,6 @@ export default function AppHeader({ activePage, onNavigate, onGoHome }: AppHeade
                 >
                   <item.icon className="w-3.5 h-3.5 relative z-10" />
                   <span className="relative z-10">{item.label}</span>
-                  {item.badge && (
-                    <span className="relative z-10 text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 font-bold leading-none">
-                      {item.badge}
-                    </span>
-                  )}
                   {activePage === item.id && (
                     <motion.div
                       layoutId="nav-pill"
@@ -393,11 +387,6 @@ export default function AppHeader({ activePage, onNavigate, onGoHome }: AppHeade
                   >
                     <item.icon className="w-4 h-4" />
                     <span>{item.label}</span>
-                    {item.badge && (
-                      <span className="ml-auto text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 font-bold">
-                        {item.badge}
-                      </span>
-                    )}
                   </button>
                 ))}
 

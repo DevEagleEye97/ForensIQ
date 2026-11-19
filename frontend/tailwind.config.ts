@@ -15,6 +15,10 @@ const config: Config = {
         warn: '#FBBF24',
         fail: '#F87171',
       },
+      borderColor: {
+        DEFAULT: 'rgba(255, 255, 255, 0.10)',
+        border: 'rgba(255, 255, 255, 0.10)',
+      },
       borderRadius: {
         '20': '20px',
       },
