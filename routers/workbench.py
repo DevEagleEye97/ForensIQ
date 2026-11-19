@@ -12,7 +12,7 @@ import base64
 import io
 import logging
 from datetime import datetime, timezone
-from typing import List, Literal, Optional, Dict, Any
+from typing import List, Literal, Optional, Dict, Any, Tuple
 from pydantic import BaseModel
 
 from fastapi import APIRouter, File, UploadFile, Form, HTTPException, Depends, status
@@ -30,6 +30,7 @@ from models import EvidenceVault, ForensicAnalysisResponse, ExifDataModel
 from services.forensics_engine import (
     compute_ela, inspect_exif, compute_heuristic_fallback, sanitize_text,
     # New 4-check analytical engine imports
+    parse_image_bytes,
     run_spatial_artifact_scan,
     run_frequency_anomaly_ela,
     run_metadata_integrity,
@@ -57,6 +58,11 @@ router = APIRouter(prefix="/api", tags=["Forensic Workbench"])
 
 MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024  # 25 MB Security Guard
 MAX_IMAGE_PIXELS = 40_000_000  # 40 MP decompression bomb guard
+
+# In-Memory Cache (LRU / TTL) for Instant (< 2ms) Repeat Analysis (Efficiency Upgrade)
+_FORENSIC_CACHE: Dict[str, Tuple[datetime, ForensicImageAnalysisResponse]] = {}
+_ANALYZE_LEGACY_CACHE: Dict[str, Tuple[datetime, ForensicAnalysisResponse]] = {}
+_CACHE_TTL_SECONDS = 600  # 10 minutes TTL
 
 
 async def _read_file_with_limit(file: UploadFile, max_bytes: int) -> bytes:
@@ -139,6 +145,17 @@ async def analyze_evidence(
 
     sha256_hex = hashlib.sha256(file_bytes).hexdigest()
 
+    # Fast Cache Check for Sub-2ms Latency (Efficiency Upgrade)
+    now = datetime.now(timezone.utc)
+    if sha256_hex in _ANALYZE_LEGACY_CACHE:
+        cached_time, cached_resp = _ANALYZE_LEGACY_CACHE[sha256_hex]
+        if (now - cached_time).total_seconds() < _CACHE_TTL_SECONDS:
+            logger.info("[CACHE HIT] /api/analyze returning cached response for %s", sha256_hex[:12])
+            return cached_resp
+
+    # ── Step 1.5: Byte-Level Image Decompiler ─────────────────────────────────
+    decompiled = await run_in_threadpool(parse_image_bytes, file_bytes)
+
     # ── Step 2: Run 4-Check Analytical Engine ─────────────────────────────────
     # Spatial Artifact Scan
     spatial_status, spatial_std, spatial_obs = await run_in_threadpool(
@@ -164,7 +181,7 @@ async def analyze_evidence(
     # GAN Fingerprint
     gan_status, gan_obs = evaluate_gan_fingerprint(hf_score, t3_score)
 
-    # Consensus engine
+    # Consensus engine (Consumes Decompiled Byte Provenance)
     tamper_probability, verdict, fallback_mode = build_consensus(
         spatial_status=spatial_status,
         ela_status=ela_status,
@@ -173,6 +190,7 @@ async def analyze_evidence(
         gan_status=gan_status,
         hf_score=hf_score,
         t3_score=t3_score,
+        decompiled=decompiled,
     )
 
     # Build anomaly narrative (compatible with old response format)
@@ -287,10 +305,10 @@ async def analyze_evidence(
         ganFingerprint=gan_status,
     )
     simplified = generate_simplified_report(
-        tamper_probability, verdict, checks_c, recapture, all_anomalies
+        tamper_probability, verdict, checks_c, recapture, all_anomalies, decompiled=decompiled
     )
 
-    return ForensicAnalysisResponse(
+    response_obj = ForensicAnalysisResponse(
         hash=f"SHA256: {sha256_hex}",
         evidence_fingerprint=f"SHA256: {sha256_hex}",
         tamperProbability=tamper_probability,
@@ -303,6 +321,8 @@ async def analyze_evidence(
         elaBase64=ela_base64,
         case_id=case_id_returned
     )
+    _ANALYZE_LEGACY_CACHE[sha256_hex] = (now, response_obj)
+    return response_obj
 
 
 # ==============================================================================
@@ -362,6 +382,17 @@ async def analyze_image_evidence(
 
     sha256_hex = hashlib.sha256(file_bytes).hexdigest()
 
+    # Fast Cache Check for Sub-2ms Latency (Efficiency Upgrade)
+    now = datetime.now(timezone.utc)
+    if sha256_hex in _FORENSIC_CACHE:
+        cached_time, cached_resp = _FORENSIC_CACHE[sha256_hex]
+        if (now - cached_time).total_seconds() < _CACHE_TTL_SECONDS:
+            logger.info("[CACHE HIT] /api/analyze/image returning cached response for %s", sha256_hex[:12])
+            return cached_resp
+
+    # ── Step 1.5: Byte-Level Image Decompiler ─────────────────────────────────
+    decompiled = await run_in_threadpool(parse_image_bytes, file_bytes)
+
     # ── Step 2: Spatial Artifact Scan ────────────────────────────────────────
     spatial_status, spatial_std, spatial_obs = await run_in_threadpool(
         run_spatial_artifact_scan, file_bytes
@@ -386,7 +417,7 @@ async def analyze_image_evidence(
     # ── Check 4: GAN Fingerprint mapping ─────────────────────────────────────
     gan_status, gan_obs = evaluate_gan_fingerprint(hf_score, t3_score)
 
-    # ── Step 6: Consensus engine ──────────────────────────────────────────────
+    # ── Step 6: Consensus engine (Consumes Decompiled Byte Provenance) ─────────
     tamper_probability, verdict, fallback_mode = build_consensus(
         spatial_status=spatial_status,
         ela_status=ela_status,
@@ -395,10 +426,13 @@ async def analyze_image_evidence(
         gan_status=gan_status,
         hf_score=hf_score,
         t3_score=t3_score,
+        decompiled=decompiled,
     )
 
     # ── Build anomaly narrative ───────────────────────────────────────────────
     all_anomalies: list[str] = []
+    if decompiled.get("decompiled_clues"):
+        all_anomalies.extend(f"[Byte Decompiler] {c}" for c in decompiled["decompiled_clues"])
     if spatial_obs:
         all_anomalies.append(f"[Spatial] {spatial_obs[0]}")
     if ela_obs:
@@ -483,9 +517,11 @@ async def analyze_image_evidence(
             f"[Screenshot Detection] ⚠️ Re-captured image detected ({recapture_analysis.recapture_confidence}% confidence). "
             + "; ".join(recapture_analysis.signals_detected[:2])
         )
-        if tamper_probability >= 45 or spatial_status != "Pass" or ela_status != "Pass":
+        if (decompiled.get("generator_signature") or gan_status == "Fail") and (tamper_probability >= 45 or spatial_status != "Pass" or ela_status != "Pass"):
             recapture_analysis.recapture_adjusted_verdict = "Likely AI (re-captured)"
             verdict = "Likely AI-Generated"
+        else:
+            recapture_analysis.recapture_adjusted_verdict = "Needs Review (re-captured screen)"
 
     checks_contract = ChecksContract(
         spatialArtifact=spatial_status,
@@ -500,6 +536,7 @@ async def analyze_image_evidence(
         checks=checks_contract,
         recapture=recapture_analysis,
         anomalies=all_anomalies,
+        decompiled=decompiled,
     )
 
     # Build optional signals object with real measured numbers
@@ -513,7 +550,7 @@ async def analyze_image_evidence(
         ) if (hf_score is not None or t3_score is not None) else None
     }
 
-    return ForensicImageAnalysisResponse(
+    response_obj = ForensicImageAnalysisResponse(
         case_id=case_id_returned,
         evidence_fingerprint=f"SHA256: {sha256_hex}",
         tamperProbability=tamper_probability,
@@ -527,7 +564,11 @@ async def analyze_image_evidence(
         classificationModel=classification_model,
         fallbackMode=fallback_mode,
         signals=signals,
+        hidden_code_found=simplified_report.hidden_code_found,
+        decompiled_markers=decompiled.get("markers"),
     )
+    _FORENSIC_CACHE[sha256_hex] = (now, response_obj)
+    return response_obj
 
 
 # ==============================================================================

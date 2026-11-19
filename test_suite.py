@@ -303,8 +303,29 @@ def run_tests():
         assert "region" in m
     print("   [PASS] Sourced threat intelligence feed verified (all metrics cited).")
 
+    print(">>> 22. Testing Byte-Level Decompiler & Watermark Truth Table...")
+    # Create PNG with simulated Stable Diffusion tEXt chunk
+    from PIL.PngImagePlugin import PngInfo
+    ai_img = Image.new("RGB", (80, 80), color=(20, 80, 120))
+    target_info = PngInfo()
+    target_info.add_text("parameters", "masterpiece, highly detailed portrait, stable diffusion v1.5 prompt")
+    ai_buf = io.BytesIO()
+    ai_img.save(ai_buf, format="PNG", pnginfo=target_info)
+    ai_bytes = ai_buf.getvalue()
+
+    r = client.post(
+        "/api/analyze/image",
+        files={"file": ("sd_watermarked.png", ai_bytes, "image/png")}
+    )
+    assert r.status_code == 200
+    ai_data = r.json()
+    assert ai_data["verdict"] == "Likely AI-Generated"
+    assert ai_data["simplified_report"]["verdict"] == "RED_FLAG"
+    assert ai_data["hidden_code_found"] == "stable diffusion"
+    print("   [PASS] Positive AI watermark detected via byte decompiler (RED FLAG, 'stable diffusion').")
+
     print("\n=======================================================")
-    print("ALL 21 TRUTHLENS FORENSIQ REGRESSION TESTS PASSED (100%)!")
+    print("ALL 22 TRUTHLENS FORENSIQ REGRESSION TESTS PASSED (100%)!")
     print("=======================================================")
 
 if __name__ == "__main__":

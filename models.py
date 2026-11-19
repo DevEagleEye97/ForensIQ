@@ -73,7 +73,10 @@ class ForensicAnalysisResponse(BaseModel):
     verdict: Literal[
         "Likely AI-Generated",
         "Likely Authentic",
-        "Spliced / Edited"
+        "Authentic (Metadata Stripped)",
+        "Spliced / Edited",
+        "Needs Review",
+        "Needs Human Review"
     ]
     classificationModel: str
     exifData: ExifDataModel

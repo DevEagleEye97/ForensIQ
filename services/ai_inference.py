@@ -138,16 +138,16 @@ async def query_openrouter_vision(
             models = list(dict.fromkeys([m for m in fallback_pool if m]))
 
     prompt = (
-        "You are an Elite Forensic Vision Specialist. Conduct a granular, objective forensic evaluation on this image.\n"
-        "Inspect and reason about:\n"
-        "1. Pupil corneal light reflection geometry (elliptical shape congruence and light source vector alignment across eyes).\n"
-        "2. Facial boundary blending, hairline transition halos, and irregular micro-texture diffusion.\n"
-        "3. Lighting and shadow vector consistency across the nasal bridge, jawline, and background scene.\n\n"
+        "You are a forensic analyst. You are analyzing an image.\n"
+        "CRITICAL RULE: The absence of metadata or camera data DOES NOT mean an image is AI.\n"
+        "Only flag an image as \"Likely AI-Generated\" if you see explicit visual artifacts of AI (e.g., warped hands, impossible lighting, synthetic skin texture, checkerboard patterns).\n"
+        "If the image looks like a normal photo but lacks metadata, you MUST classify it as \"Authentic (Metadata Stripped)\" or \"Needs Review\", NEVER \"Likely AI\".\n"
+        "Output your finding in plain English, max 2 sentences. End with \"Human review recommended for final verification.\"\n\n"
         "Return ONLY a strictly valid JSON object without markdown formatting:\n"
         "{\n"
         '  "tamper_score": <integer 0-100>,\n'
-        '  "verdict": "<Likely AI-Generated | Likely Authentic | Spliced / Edited>",\n'
-        '  "observations": ["<precise observation 1>", "<precise observation 2>"]\n'
+        '  "verdict": "<Likely AI-Generated | Likely Authentic | Authentic (Metadata Stripped) | Spliced / Edited | Needs Review>",\n'
+        '  "observations": ["<plain English sentence 1>", "<plain English sentence 2>"]\n'
         "}"
     )
 

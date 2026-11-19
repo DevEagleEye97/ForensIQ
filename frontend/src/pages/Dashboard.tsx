@@ -42,7 +42,7 @@ export interface BackendAnalysisResult {
   case_id: string;
   evidence_fingerprint?: string;
   tamperProbability: number;
-  verdict: 'Likely AI-Generated' | 'Likely Authentic' | 'Spliced / Edited';
+  verdict: 'Likely AI-Generated' | 'Likely Authentic' | 'Authentic (Metadata Stripped)' | 'Spliced / Edited' | 'Needs Review' | 'Needs Human Review';
   simplified_report?: SimplifiedReport;
   recapture_analysis?: RecaptureAnalysis;
   checks: {
@@ -496,7 +496,11 @@ export default function Dashboard() {
                             'px-3 py-1 rounded-lg text-xs font-bold font-mono border',
                             analysisResult.verdict === 'Likely Authentic'
                               ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                              : analysisResult.verdict === 'Authentic (Metadata Stripped)'
+                              ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
                               : analysisResult.verdict === 'Spliced / Edited'
+                              ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                              : analysisResult.verdict === 'Needs Review' || analysisResult.verdict === 'Needs Human Review'
                               ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
                               : 'bg-rose-500/15 text-rose-400 border-rose-500/30'
                           )}

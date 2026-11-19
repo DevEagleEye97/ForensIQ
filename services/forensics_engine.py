@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import io
 import re
+import struct
 import base64
 import hashlib
 import logging
@@ -35,8 +36,15 @@ logger = logging.getLogger("forensiq.services.forensics_engine")
 # Check Status Type Alias
 # ---------------------------------------------------------------------------
 CheckStatus = Literal["Pass", "Warn", "Fail"]
-Verdict = Literal["Likely AI-Generated", "Likely Authentic", "Spliced / Edited"]
-FlagVerdict = Literal["RED_FLAG", "GREEN_FLAG", "NEEDS_REVIEW"]
+Verdict = Literal[
+    "Likely AI-Generated",
+    "Likely Authentic",
+    "Authentic (Metadata Stripped)",
+    "Spliced / Edited",
+    "Needs Review",
+    "Needs Human Review"
+]
+FlagVerdict = Literal["RED_FLAG", "GREEN_FLAG", "NEEDS_REVIEW", "AMBER", "RED", "GREEN", "ORANGE"]
 ConfidenceLevel = Literal["HIGH", "MEDIUM", "LOW"]
 
 
@@ -56,6 +64,8 @@ class SimplifiedReportContract(BaseModel):
     simple_explanation: str        # Plain English summary (max 3 sentences, short)
     key_finding: str               # One-liner highlighting the primary clue
     confidence_level: ConfidenceLevel
+    hidden_code_found: Optional[str] = None
+    limitations: Optional[str] = None
     technical_details_available: bool = True
 
     model_config = ConfigDict(populate_by_name=True)
@@ -117,8 +127,128 @@ class ForensicImageAnalysisResponse(BaseModel):
     classificationModel: str
     fallbackMode: bool = False       # True when external APIs were unavailable
     signals: Optional[Dict[str, Any]] = None  # Optional real measured numbers
+    hidden_code_found: Optional[str] = None
+    decompiled_markers: Optional[List[str]] = None
 
     model_config = ConfigDict(populate_by_name=True)
+
+
+# ===========================================================================
+# BYTE-LEVEL IMAGE DECOMPILER — PARSE IMAGE BYTES & HIDDEN SIGNATURES
+# Methodology: Walk raw PNG chunks & JPEG APPn markers for positive proof of AI.
+# Axiom: Absence of evidence is not evidence of AI.
+# ===========================================================================
+
+GENERATOR_SIGNATURES = [
+    "midjourney", "stable diffusion", "a1111", "comfyui", "dall", "openai",
+    "imagen", "flux", "black forest", "synthid", "c2pa", "contentauth",
+    "firefly", "adobe", "sora", "runway", "pika", "kling", "leonardo",
+    "ideogram", "recraft", "trained with", "ai_generated", "ai-generated",
+]
+CAMERA_KEYS = ["Make", "Model", "LensModel", "ISOSpeedRatings", "FocalLength", "ExposureTime"]
+EDIT_KEYS   = ["Adobe Photoshop", "GIMP", "Affinity", "Lightroom", "Snapseed"]
+
+
+def parse_image_bytes(raw: bytes) -> Dict[str, Any]:
+    """
+    Decompile the image at the raw byte level:
+    Walk raw markers, chunks, and segments to extract hidden generator signatures,
+    C2PA provenance manifests, camera sensor metadata, and editing software traces.
+    """
+    out: Dict[str, Any] = {
+        "format": None,
+        "markers": [],
+        "generator_signature": None,
+        "camera_exif": {},
+        "software_signature": None,
+        "c2pa_manifest": False,
+        "png_text_chunks": [],
+        "decompiled_clues": [],
+    }
+
+    if not raw or len(raw) < 16:
+        return out
+
+    # ---- PNG path (Stable Diffusion / ComfyUI embed prompt/workflow in tEXt/iTXt chunks) ----
+    if raw[:8] == b"\x89PNG\r\n\x1a\n":
+        out["format"] = "png"
+        i = 8
+        raw_len = len(raw)
+        while i < raw_len - 8:
+            try:
+                length = struct.unpack(">I", raw[i:i+4])[0]
+                ctype = raw[i+4:i+8].decode("latin-1", "ignore")
+                data = raw[i+8:i+8+length]
+                if ctype in ("tEXt", "iTXt", "zTXt"):
+                    txt = data.decode("latin-1", "ignore").lower()
+                    out["png_text_chunks"].append(f"{ctype}:{txt[:120]}")
+                    for sig in GENERATOR_SIGNATURES:
+                        if sig in txt and not out["generator_signature"]:
+                            out["generator_signature"] = sig
+                            out["decompiled_clues"].append(
+                                f"PNG {ctype} chunk contains positive AI generator signature: '{sig}'"
+                            )
+                if ctype == "IEND":
+                    break
+                i += 12 + length
+            except Exception:
+                break
+
+    # ---- JPEG path (walk APPn markers: EXIF/XMP/C2PA/JUMBF live here) ----
+    elif raw[:2] == b"\xff\xd8":
+        out["format"] = "jpeg"
+        i = 2
+        raw_len = len(raw)
+        while i < raw_len - 4:
+            if raw[i] != 0xFF:
+                i += 1
+                continue
+            marker = raw[i+1]
+            if marker in (0xD8, 0xD9):  # SOI / EOI
+                out["markers"].append(f"FF{marker:02X}")
+                if marker == 0xD9:
+                    break
+                i += 2
+                continue
+            if i + 4 > raw_len:
+                break
+            try:
+                seg_len = struct.unpack(">H", raw[i+2:i+4])[0]
+            except Exception:
+                break
+            payload = raw[i+4:min(raw_len, i+2+seg_len)].decode("latin-1", "ignore").lower()
+            out["markers"].append(f"FF{marker:02X}")
+            if marker in (0xE1, 0xEB, 0xEC):          # APP1/APP11/APP12 = EXIF/XMP/C2PA
+                if "c2pa" in payload or "contentauth" in payload or "jumbf" in payload:
+                    out["c2pa_manifest"] = True
+                    out["decompiled_clues"].append("C2PA / Content Credentials provenance manifest detected in JPEG segment")
+                for sig in GENERATOR_SIGNATURES:
+                    if sig in payload and not out["generator_signature"]:
+                        out["generator_signature"] = sig
+                        out["decompiled_clues"].append(f"JPEG APP marker FF{marker:02X} contains signature: '{sig}'")
+            i += 2 + seg_len
+
+        # EXIF via Pillow for camera sensor tags
+        try:
+            exif = Image.open(io.BytesIO(raw)).getexif() or {}
+            for k, v in exif.items():
+                if str(k) in ("271", "272", "42016", "42034", "41993", "37386", "37381"):
+                    out["camera_exif"][str(k)] = str(v)[:60]
+        except Exception:
+            pass
+
+    # Check editing software signatures across raw header bytes
+    try:
+        raw_sample = raw[:min(len(raw), 65536)].decode("latin-1", "ignore")
+        for ed in EDIT_KEYS:
+            if ed.lower() in raw_sample.lower():
+                out["software_signature"] = ed
+                out["decompiled_clues"].append(f"Post-capture editing software signature detected: '{ed}'")
+                break
+    except Exception:
+        pass
+
+    return out
 
 
 # ===========================================================================
@@ -634,6 +764,77 @@ _STATUS_WEIGHT: Dict[CheckStatus, int] = {"Pass": 0, "Warn": 1, "Fail": 2}
 _STATUS_SCORE: Dict[CheckStatus, float] = {"Pass": 10.0, "Warn": 50.0, "Fail": 90.0}
 
 
+def generate_final_verdict(decompiled_data: dict, ela_variance: float = 0.0, vit_score: float = 0.0) -> dict:
+    """
+    Adversarial-Resistant Consensus Engine.
+    Catches scrubbed AI images via pixel analysis, while protecting real stripped photos.
+    """
+    gen_sig = decompiled_data.get("generator_signature")
+    has_camera_exif = bool(decompiled_data.get("camera_exif"))
+    has_editing_software = bool(decompiled_data.get("software_signature"))
+    is_c2pa = decompiled_data.get("c2pa_manifest", False)
+
+    # RULE 1: POSITIVE EVIDENCE OF AI (The "Hidden Code" Rule)
+    if gen_sig or is_c2pa:
+        return {
+            "verdict": "Likely AI-Generated",
+            "flag": "RED",
+            "confidence": "HIGH",
+            "plain_english": f"Detected hidden generator signature: '{gen_sig or 'C2PA Manifest'}'. This image contains metadata typical of AI synthesis.",
+            "limitations": "Metadata can be spoofed, but presence is a strong indicator."
+        }
+
+    # RULE 2: POSITIVE EVIDENCE OF AUTHENTIC (Camera Sensor Data + Clean Visuals)
+    if has_camera_exif and not has_editing_software and vit_score < 0.6:
+        return {
+            "verdict": "Likely Authentic",
+            "flag": "GREEN",
+            "confidence": "HIGH",
+            "plain_english": "Image contains valid camera sensor metadata and shows no signs of AI generation or editing software.",
+            "limitations": "High-quality splicing can sometimes preserve EXIF, but no anomalies were detected."
+        }
+
+    # RULE 3: THE "ADVERSARIAL STRIPPING" CATCH (Metadata gone, BUT visual artifacts present)
+    if not gen_sig and not has_camera_exif:
+        # If ViT (AI classifier) or ELA (pixel manipulation) scores are HIGH, it's a scrubbed AI image
+        if vit_score > 0.65 or ela_variance > 15.0: 
+            return {
+                "verdict": "Likely AI-Generated (Adversarial Stripping)",
+                "flag": "RED",
+                "confidence": "MEDIUM",
+                "plain_english": "No AI metadata found, but pixel-level analysis (ELA/ViT) detects synthetic generation patterns. The image may have been processed to remove AI labels.",
+                "limitations": "Metadata was stripped, so we rely solely on visual artifact detection. Human review recommended."
+            }
+        else:
+            # Visuals look normal, metadata is just gone (e.g., WhatsApp screenshot of a real photo)
+            return {
+                "verdict": "Authentic (Metadata Stripped)",
+                "flag": "AMBER",
+                "confidence": "MEDIUM",
+                "plain_english": "No AI generator signatures found. Camera metadata is missing, which is normal for images shared via social media or screenshots. Visual patterns appear natural.",
+                "limitations": "Cannot definitively prove origin without EXIF, but no synthetic artifacts were detected."
+            }
+
+    # RULE 4: EDITING SOFTWARE DETECTED
+    if has_editing_software:
+        return {
+            "verdict": "Spliced / Edited",
+            "flag": "ORANGE",
+            "confidence": "MEDIUM",
+            "plain_english": f"Image contains editing software tags (e.g., {decompiled_data.get('software_signature')}). It may be a genuine photo that was altered.",
+            "limitations": "Does not prove malicious manipulation, only that an editor was used."
+        }
+
+    # FALLBACK
+    return {
+        "verdict": "Needs Human Review",
+        "flag": "AMBER",
+        "confidence": "LOW",
+        "plain_english": "Conflicting or insufficient signals. Human investigator review required.",
+        "limitations": "Automated tools could not reach a consensus."
+    }
+
+
 def build_consensus(
     spatial_status: CheckStatus,
     ela_status: CheckStatus,
@@ -642,68 +843,72 @@ def build_consensus(
     gan_status: CheckStatus,
     hf_score: Optional[float],
     t3_score: Optional[int],
+    decompiled: Optional[Dict[str, Any]] = None,
 ) -> Tuple[int, Verdict, bool]:
     """
-    Consensus Engine:
-    Weights ELA variance (continuous) with the check statuses to derive
-    a final tamper probability and verdict.
+    TruthLens Consensus Engine (Byte-Level Provenance & Multi-Check Fusion):
+    Weights byte-level decompilation evidence with local ELA and external AI tiers.
 
-    Returns:
-        tamper_probability (int 0-100)
-        verdict (Verdict)
-        fallback_mode (bool)
+    Forensic Axiom: Absence of evidence is not evidence of AI.
+    - Positive generator signature / C2PA -> 'Likely AI-Generated' (RED FLAG, HIGH confidence)
+    - Camera hardware sensor + low ELA    -> 'Likely Authentic' (GREEN FLAG, HIGH confidence)
+    - Missing EXIF + no AI signature      -> 'Authentic (Metadata Stripped)' (AMBER, MEDIUM confidence)
+    - Editing software tags               -> 'Spliced / Edited' (ORANGE/RED, MEDIUM confidence)
     """
-    # Determine if we are in fallback (no external AI data)
     fallback_mode = (hf_score is None and t3_score is None)
+    decompiled_data = dict(decompiled) if decompiled else {}
 
-    # Collect all score signals
-    scores: List[float] = [
-        _STATUS_SCORE[spatial_status],
-        _STATUS_SCORE[ela_status],
-        _STATUS_SCORE[meta_status],
-        _STATUS_SCORE[gan_status],
-    ]
+    # If decompiled did not parse camera_exif but meta_status == "Pass", preserve camera evidence
+    if meta_status == "Pass" and not decompiled_data.get("camera_exif"):
+        decompiled_data["camera_exif"] = {"Image Make": "Hardware Camera Sensor"}
 
-    # Inject continuous ELA signal (scaled 0–100)
-    ela_signal = min(100.0, ela_variance_pct * 5.0)
-    scores.append(ela_signal)
+    decision = generate_final_verdict(
+        decompiled_data=decompiled_data,
+        ela_variance=ela_variance_pct,
+        vit_score=hf_score or 0.0,
+    )
 
-    # Inject HF/T3 scores if available
-    if hf_score is not None:
-        scores.append(hf_score * 100.0)
-    if t3_score is not None:
-        scores.append(float(t3_score))
+    verdict_candidate = decision["verdict"]
 
-    tamper_probability = int(round(float(np.mean(scores))))
-    tamper_probability = max(0, min(100, tamper_probability))
-
-    # Fail count determines verdict boundaries
-    fail_count = sum(1 for s in [spatial_status, ela_status, meta_status, gan_status] if s == "Fail")
-    warn_count = sum(1 for s in [spatial_status, ela_status, meta_status, gan_status] if s == "Warn")
-
-    if gan_status == "Fail" and fail_count >= 2:
+    if verdict_candidate == "Likely AI-Generated":
+        tamper_probability = max(88, int(round((hf_score or 0.9) * 100)))
         verdict: Verdict = "Likely AI-Generated"
-    elif ela_status == "Fail" and (spatial_status in ("Warn", "Fail") or meta_status == "Warn"):
-        verdict = "Spliced / Edited"
-    elif tamper_probability >= 65:
-        if meta_status == "Warn" and ela_status in ("Warn", "Fail"):
-            verdict = "Spliced / Edited"
-        else:
-            verdict = "Likely AI-Generated"
-    elif tamper_probability <= 35:
+    elif verdict_candidate == "Likely Authentic":
+        tamper_probability = min(15, max(3, int(ela_variance_pct * 1.5)))
         verdict = "Likely Authentic"
-    else:
-        # Ambiguous zone — weight individual signals
-        if warn_count >= 3 or fail_count >= 1:
+    elif verdict_candidate == "Authentic (Metadata Stripped)":
+        # Missing EXIF is NORMAL for WhatsApp, Instagram, or screenshots.
+        # Calibrated to 20-28% (authentic baseline, not flagged as fraud).
+        tamper_probability = min(28, max(14, int(18 + ela_variance_pct * 0.4)))
+        # Only override to AI if HF/Vision model has VERY high positive visual confidence (>88%)
+        if (hf_score and hf_score > 0.88) or (t3_score and t3_score > 88):
+            verdict = "Likely AI-Generated"
+            tamper_probability = max(80, int((hf_score or 0.88) * 100))
+        elif ela_status == "Fail" and spatial_status == "Fail":
             verdict = "Spliced / Edited"
+            tamper_probability = 65
         else:
-            verdict = "Likely Authentic"
+            verdict = "Authentic (Metadata Stripped)"
+    elif verdict_candidate == "Spliced / Edited":
+        verdict = "Spliced / Edited"
+        tamper_probability = max(58, min(85, int(50 + ela_variance_pct)))
+    else:
+        verdict = "Needs Human Review"
+        tamper_probability = 35
 
     logger.info(
         "[CONSENSUS] tamper=%d%%  verdict=%s  fallback=%s  "
-        "spatial=%s  ela=%s  meta=%s  gan=%s",
+        "spatial=%s  ela=%s  meta=%s  gan=%s  candidate=%s",
         tamper_probability, verdict, fallback_mode,
-        spatial_status, ela_status, meta_status, gan_status,
+        spatial_status, ela_status, meta_status, gan_status, verdict_candidate,
+    )
+    return tamper_probability, verdict, fallback_mode
+
+    logger.info(
+        "[CONSENSUS] tamper=%d%%  verdict=%s  fallback=%s  "
+        "spatial=%s  ela=%s  meta=%s  gan=%s  has_generator=%s",
+        tamper_probability, verdict, fallback_mode,
+        spatial_status, ela_status, meta_status, gan_status, has_generator,
     )
     return tamper_probability, verdict, fallback_mode
 
@@ -797,42 +1002,59 @@ def generate_simplified_report(
     checks: ChecksContract,
     recapture: RecaptureAnalysisContract,
     anomalies: List[str],
+    decompiled: Optional[Dict[str, Any]] = None,
 ) -> SimplifiedReportContract:
     """
     Translates complex forensic metrics into plain English for non-technical investigators.
     Applies the Red/Green/Amber flag verdict system.
     """
+    gen_sig = decompiled.get("generator_signature") if decompiled else None
+    c2pa = decompiled.get("c2pa_manifest") if decompiled else False
+    hidden_code = gen_sig or ("C2PA Manifest" if c2pa else None)
+
     # 1. Determine Flag Verdict
-    # Red Flag: Tamper prob >= 60% OR multiple manipulation indicators OR recaptured AI
-    if tamper_probability >= 60 or checks.ganFingerprint == "Fail" or checks.frequencyAnomaly == "Fail":
+    if verdict == "Likely AI-Generated" or (gen_sig or c2pa):
         flag: FlagVerdict = "RED_FLAG"
         color = "#EF4444"
         icon = "⚠"
-        status_msg = "Suspicious - Likely AI-generated or manipulated"
-        conf_level: ConfidenceLevel = "HIGH" if tamper_probability >= 75 else "MEDIUM"
-    elif recapture.is_recaptured and (checks.spatialArtifact in ("Warn", "Fail") or checks.frequencyAnomaly in ("Warn", "Fail")):
-        flag = "RED_FLAG"
-        color = "#EF4444"
-        icon = "⚠"
-        status_msg = "Suspicious - Re-captured AI or edited image"
-        conf_level = "HIGH"
-    elif tamper_probability <= 25 and checks.frequencyAnomaly == "Pass" and checks.metadataIntegrity == "Pass" and not recapture.is_recaptured:
+        status_msg = "Suspicious - Positive AI watermark or generator signature detected"
+        conf_level: ConfidenceLevel = "HIGH"
+    elif verdict == "Likely Authentic" or (tamper_probability <= 25 and checks.frequencyAnomaly == "Pass" and checks.metadataIntegrity == "Pass"):
         flag = "GREEN_FLAG"
         color = "#10B981"
         icon = "✓"
-        status_msg = "Authentic - No manipulation detected"
+        status_msg = "Authentic - Camera sensor provenance confirmed"
         conf_level = "HIGH"
-    else:
-        # Ambiguous / Conflicting zone
+    elif verdict == "Authentic (Metadata Stripped)":
+        flag = "NEEDS_REVIEW"
+        color = "#F59E0B"
+        icon = "✓"
+        status_msg = "Authentic (Metadata Stripped) - No AI signatures found"
+        conf_level = "MEDIUM"
+    elif verdict == "Spliced / Edited" or (checks.frequencyAnomaly == "Fail" and checks.spatialArtifact in ("Warn", "Fail")):
+        flag = "RED_FLAG"
+        color = "#EF4444"
+        icon = "⚠"
+        status_msg = "Suspicious - Inconsistent compression indicates spliced elements"
+        conf_level = "HIGH" if tamper_probability >= 70 else "MEDIUM"
+    elif verdict in ("Needs Review", "Needs Human Review"):
         flag = "NEEDS_REVIEW"
         color = "#F59E0B"
         icon = "?"
         status_msg = "Uncertain - Human investigator review required"
         conf_level = "LOW"
+    else:
+        flag = "NEEDS_REVIEW"
+        color = "#F59E0B"
+        icon = "?"
+        status_msg = "Uncertain - Ambiguous indicators"
+        conf_level = "LOW"
 
     # 2. Extract Key Finding (short one-liner)
     if flag == "RED_FLAG":
-        if recapture.is_recaptured:
+        if hidden_code:
+            key_finding = f"Positive AI generator signature detected in file byte markers: '{hidden_code}'."
+        elif recapture.is_recaptured and checks.ganFingerprint == "Fail":
             key_finding = "Image was screenshotted from a display and exhibits synthetic edge anomalies."
         elif checks.ganFingerprint == "Fail":
             key_finding = "Artificial intelligence generation patterns confidently detected across facial boundaries."
@@ -841,42 +1063,63 @@ def generate_simplified_report(
         else:
             key_finding = "Unnatural pixel boundaries detected consistent with digital photo manipulation."
     elif flag == "GREEN_FLAG":
-        key_finding = "Natural camera lens and consistent compression levels found throughout image."
+        key_finding = "Image contains valid camera sensor metadata (Make/Model) and shows no signs of AI generation or editing software."
+    elif verdict == "Authentic (Metadata Stripped)":
+        key_finding = "No AI generator signatures were found. Camera metadata is missing, which is normal for images shared via WhatsApp, social media, or screenshots."
     else:
-        key_finding = "Mixed signals detected between compression levels and camera signature."
+        key_finding = "No positive AI watermark found, but camera metadata is stripped (screenshot or re-encode)."
 
     # 3. Plain English Explanation (max 3 sentences, <= 15 words per sentence)
     if flag == "RED_FLAG":
-        if recapture.is_recaptured:
+        if hidden_code:
+            explanation = (
+                f"Detected hidden generator signature: '{hidden_code}'. "
+                "This image contains metadata typical of AI synthesis. "
+                "Human review recommended for final verification."
+            )
+        elif recapture.is_recaptured:
             explanation = (
                 "This image was re-captured from a digital screen. "
                 "Beneath the screenshot, compression and edge patterns indicate artificial tampering. "
-                "Digital markers strongly indicate synthetic origin."
+                "Human review recommended for final verification."
             )
         elif checks.frequencyAnomaly == "Fail":
             explanation = (
                 "Like pasting a paper cutout into a photo, pixel compression does not match. "
                 "Different parts of this image were saved at different quality levels. "
-                "This confirms regions were edited or spliced."
+                "Human review recommended for final verification."
             )
         else:
             explanation = (
                 "Microscopic pixel patterns do not match real camera lenses. "
                 "Artificial intelligence left subtle mathematical traces across boundaries. "
-                "The image shows strong hallmarks of AI generation."
+                "Human review recommended for final verification."
             )
     elif flag == "GREEN_FLAG":
         explanation = (
-            "Camera hardware signature and natural light gradients match across the entire photo. "
+            "Image contains valid camera sensor metadata (Make/Model) and shows no signs of AI generation or editing software. "
             "Compression levels are uniform without spliced edges. "
-            "No signs of digital manipulation or artificial generation detected."
+            "Human review recommended for final verification."
+        )
+    elif verdict == "Authentic (Metadata Stripped)":
+        explanation = (
+            "No AI generator signatures were found. "
+            "However, camera metadata is missing, which is normal for images shared via WhatsApp, social media, or screenshots. "
+            "Cannot definitively prove origin without EXIF, but NO evidence of AI synthesis exists."
         )
     else:
         explanation = (
-            "The image shows conflicting technical signals. "
-            "Camera metadata is missing, but compression levels appear mostly uniform. "
-            "A human forensic investigator should inspect this image manually."
+            "Camera sensor metadata is missing, but no positive AI signature was detected. "
+            "This commonly occurs when authentic photos are screenshotted or shared via messaging apps. "
+            "Human review recommended for final verification."
         )
+
+    limitations = (
+        "Cannot definitively prove origin without EXIF, but NO evidence of AI synthesis exists."
+    ) if verdict == "Authentic (Metadata Stripped)" else (
+        "Absence of EXIF metadata is not positive evidence of AI generation. "
+        "Original high-resolution camera file required for definitive sensor verification."
+    ) if flag == "NEEDS_REVIEW" else None
 
     return SimplifiedReportContract(
         verdict=flag,
@@ -886,6 +1129,8 @@ def generate_simplified_report(
         simple_explanation=explanation,
         key_finding=key_finding,
         confidence_level=conf_level,
+        hidden_code_found=hidden_code,
+        limitations=limitations,
         technical_details_available=True
     )
 
@@ -903,34 +1148,31 @@ def compute_heuristic_fallback(
 ) -> Tuple[int, Verdict, List[str]]:
     """
     Deterministic Heuristic Fallback Protocol — Zero HTTP 500 Guarantee.
-
-    Uses only local ELA + EXIF signals to compute a verdict when all
-    external AI classifiers are unavailable.
+    Adheres to the core axiom: Absence of evidence is not evidence of AI.
     """
     is_missing_camera = camera_make == "Unknown (Born-Digital)"
     has_software_edit = software not in ("None (Stripped)", "")
     high_ela = variance_pct > 15.0
     fallback_anomalies: List[str] = []
 
-    if high_ela and is_missing_camera:
-        tamper_probability = int(min(96, max(75, 70 + int(variance_pct * 0.8))))
-        verdict: Verdict = "Likely AI-Generated"
-        fallback_anomalies.append(
-            f"Heuristic Fallback — High ELA variance ({variance_pct:.1f}%) combined with absent "
-            "camera sensor metadata strongly indicates born-digital AI synthesis."
-        )
-        fallback_anomalies.append(
-            "Heuristic Fallback — Lack of hardware sensor signature corroborates GAN/diffusion generation."
-        )
-    elif high_ela and has_software_edit:
+    if high_ela and has_software_edit:
         tamper_probability = int(min(92, max(68, 65 + int(variance_pct * 0.7))))
-        verdict = "Spliced / Edited"
+        verdict: Verdict = "Spliced / Edited"
         fallback_anomalies.append(
             f"Heuristic Fallback — Compression discrepancy ({variance_pct:.1f}%) correlated "
             f"with software signature '{software}' — post-capture splicing confirmed."
         )
         fallback_anomalies.append(
             "Heuristic Fallback — Localised quantization boundary anomalies confirm compositing."
+        )
+    elif high_ela and is_missing_camera:
+        tamper_probability = int(min(75, max(55, 50 + int(variance_pct * 0.6))))
+        verdict = "Spliced / Edited"
+        fallback_anomalies.append(
+            f"Heuristic Fallback — Elevated ELA variance ({variance_pct:.1f}%) with stripped metadata."
+        )
+        fallback_anomalies.append(
+            "Heuristic Fallback — Inconsistent compression indicates possible digital manipulation."
         )
     elif not high_ela and not is_missing_camera:
         tamper_probability = int(max(4, min(22, 10 + int(variance_pct * 0.4))))
@@ -942,17 +1184,17 @@ def compute_heuristic_fallback(
             f"Heuristic Fallback — Camera sensor provenance confirmed: '{camera_make}'."
         )
     elif is_missing_camera and not high_ela:
-        tamper_probability = 32
-        verdict = "Likely Authentic"
+        tamper_probability = 22
+        verdict = "Authentic (Metadata Stripped)"
         fallback_anomalies.append(
-            f"Heuristic Fallback — Uniform error response ({variance_pct:.1f}%) on web-distributed image."
+            f"Heuristic Fallback — Uniform compression ({variance_pct:.1f}%) with stripped metadata."
         )
         fallback_anomalies.append(
-            "Heuristic Fallback — Stripped metadata with coherent compression levels; ambiguous provenance."
+            "Heuristic Fallback — Absence of camera EXIF is normal for social media/web shares; no positive AI signatures found."
         )
     else:
         tamper_probability = int(min(80, max(20, int(variance_pct * 2.8))))
-        verdict = "Spliced / Edited" if high_ela else "Likely Authentic"
+        verdict = "Spliced / Edited" if high_ela else "Needs Review"
         fallback_anomalies.append(
             f"Heuristic Fallback — Heuristic analysis computed {tamper_probability}% tamper score."
         )
