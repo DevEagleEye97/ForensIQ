@@ -71,7 +71,7 @@ class ForensicAnalysisResponse(BaseModel):
     hash: str
     tamperProbability: int = Field(ge=0, le=100)
     verdict: Literal[
-        "Likely AI-Generated (Synthetic)",
+        "Likely AI-Generated",
         "Likely Authentic",
         "Spliced / Edited"
     ]

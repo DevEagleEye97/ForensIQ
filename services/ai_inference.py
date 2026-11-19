@@ -105,7 +105,7 @@ async def query_openrouter_vision(
         "Return ONLY a strictly valid JSON object without markdown formatting:\n"
         "{\n"
         '  "tamper_score": <integer 0-100>,\n'
-        '  "verdict": "<Likely AI-Generated (Synthetic) | Likely Authentic | Spliced / Edited>",\n'
+        '  "verdict": "<Likely AI-Generated | Likely Authentic | Spliced / Edited>",\n'
         '  "observations": ["<precise observation 1>", "<precise observation 2>"]\n'
         "}"
     )

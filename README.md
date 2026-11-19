@@ -67,7 +67,7 @@
 ### 5. Bulletproof Fail-Safe (Demo Insurance)
 - If external AI endpoints timeout (>5s), rate-limit (429), or error, the backend **never throws HTTP 500**.
 - Automatically engages local deterministic heuristics:
-  - **High ELA variance (>18%) + Missing camera EXIF** $\rightarrow$ `Likely AI-Generated (Synthetic)`
+  - **High ELA variance (>18%) + Missing camera EXIF** $\rightarrow$ `Likely AI-Generated`
   - **Clean ELA + Intact hardware EXIF** $\rightarrow$ `Likely Authentic`
   - **Editing software signatures detected** $\rightarrow$ `Spliced / Edited`
 

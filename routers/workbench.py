@@ -154,23 +154,23 @@ async def analyze_evidence(
 
         if tamper_probability >= 65:
             if has_software_edit or quantization_hash == "Mismatched Compression":
-                verdict: Literal["Likely AI-Generated (Synthetic)", "Likely Authentic", "Spliced / Edited"] = "Spliced / Edited"
+                verdict: Literal["Likely AI-Generated", "Likely Authentic", "Spliced / Edited"] = "Spliced / Edited"
             else:
-                verdict = "Likely AI-Generated (Synthetic)"
+                verdict = "Likely AI-Generated"
         elif tamper_probability <= 35:
             verdict = "Likely Authentic"
         else:
             verdict = "Spliced / Edited" if high_ela else "Likely Authentic"
 
     else:
-        # Trigger Resilience Protocol: Deterministic Heuristic Fallback
-        tamper_probability, verdict, fallback_anomalies = compute_heuristic_fallback(
-            variance_pct=variance_pct,
-            camera_make=exif_data.cameraMake,
-            software=exif_data.software,
-            quantization_hash=quantization_hash
-        )
-        anomalies.extend(fallback_anomalies)
+            # Trigger Resilience Protocol: Deterministic Heuristic Fallback
+            tamper_probability, verdict, fallback_anomalies = compute_heuristic_fallback(
+                variance_pct=variance_pct,
+                camera_make=exif_data.cameraMake,
+                software=exif_data.software,
+                quantization_status=quantization_hash
+            )
+            anomalies.extend(fallback_anomalies)
 
     # --------------------------------------------------------------------------
     # Step 7: Write Complete Payload into SQLite 'evidence_vault' Table
