@@ -89,7 +89,11 @@
 ## 📂 Project Structure
 
 ```
-forensIQ Backend/
+ForensIQ/
+├── frontend/                   # Vite + React 18 + TypeScript + Tailwind CSS UI
+│   ├── src/                    # Components, Dashboard, Forensic Analysis & History
+│   ├── package.json            # Frontend dependencies & build scripts
+│   └── vite.config.ts          # Port 3000 & /api reverse proxy to backend
 ├── main.py                     # ASGI application, lifespan manager & CORS middleware
 ├── database.py                 # Asynchronous SQLite engine via aiosqlite & SQLAlchemy
 ├── models.py                   # Pydantic v2 telemetry contracts & EvidenceVault ORM model
@@ -150,7 +154,15 @@ uvicorn main:app --reload --port 8000
 - **Swagger Documentation:** [http://localhost:8000/docs](http://localhost:8000/docs)
 - **Health Check:** [http://localhost:8000/health](http://localhost:8000/health)
 
-### 5. Run Verification Suite
+### 5. Launch Frontend (Vite + React)
+```bash
+cd frontend
+npm install
+npm run dev
+```
+- **Web UI:** [http://localhost:3000](http://localhost:3000)
+
+### 6. Run Verification Suite
 ```bash
 python test_suite.py
 ```

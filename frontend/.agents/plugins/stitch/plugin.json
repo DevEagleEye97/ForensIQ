@@ -1,0 +1,6 @@
+{
+  "name": "stitch",
+  "displayName": "Google Stitch",
+  "description": "Google Stitch MCP server integration for AI UI generation and design-to-code capabilities.",
+  "version": "1.0.0"
+}

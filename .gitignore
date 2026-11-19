@@ -38,6 +38,11 @@ temp/
 output/
 ponytail/
 
+# Node / Frontend
+node_modules/
+dist/
+.npm/
+
 # IDE / OS
 .vscode/
 .idea/
