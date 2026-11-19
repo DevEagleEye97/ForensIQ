@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import MatrixRain from '../components/MatrixRain';
 import CinematicTitle from '../components/CinematicTitle';
+import type { Page } from '../components/AppHeader';
 import {
   FORENSIC_TOOLS_10,
   ToolCard,
@@ -16,9 +17,10 @@ import {
 interface SplashPageProps {
   onEnter: () => void;
   onReplayCinematic?: () => void;
+  onNavigate?: (page: Page) => void;
 }
 
-export default function SplashPage({ onEnter, onReplayCinematic }: SplashPageProps) {
+export default function SplashPage({ onEnter, onReplayCinematic, onNavigate }: SplashPageProps) {
   const [selectedTool, setSelectedTool] = useState<ForensicTool | null>(null);
 
   const leftTools = FORENSIC_TOOLS_10.slice(0, 5);
@@ -53,6 +55,24 @@ export default function SplashPage({ onEnter, onReplayCinematic }: SplashPagePro
                 <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
                 <span>CINEMATIC INTRO</span>
               </button>
+            )}
+
+            {onNavigate && (
+              <div className="hidden xl:flex items-center gap-2 font-mono text-[11px] text-slate-400">
+                <button
+                  onClick={() => onNavigate('privacy')}
+                  className="hover:text-cyan-300 transition-colors"
+                >
+                  Privacy
+                </button>
+                <span>·</span>
+                <button
+                  onClick={() => onNavigate('terms')}
+                  className="hover:text-cyan-300 transition-colors"
+                >
+                  Terms
+                </button>
+              </div>
             )}
 
             <div className="hidden md:flex items-center gap-2 font-mono text-[11px] text-slate-400 bg-slate-900/80 px-3 py-1.5 rounded-full border border-slate-800">
@@ -352,14 +372,62 @@ export default function SplashPage({ onEnter, onReplayCinematic }: SplashPagePro
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-slate-800/80 py-8 px-6 bg-slate-950">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-slate-500">
+      {/* Footer with Comprehensive Legal & Technical Framework Links */}
+      <footer className="border-t border-slate-800/80 py-8 px-6 bg-slate-950/95 backdrop-blur-md">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-xs font-mono text-slate-400">
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-cyan-400" />
-            <span>ForensIQ — Autonomous Multi-Spectral Media Forensics Platform</span>
+            <span className="text-slate-200 font-semibold">ForensIQ</span>
+            <span>— Autonomous Multi-Spectral Media Forensics Platform</span>
           </div>
-          <span>Compliant with NIST SP 800-86 & Federal Rules of Evidence Rule 902(14)</span>
+
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-[11px]">
+            {onNavigate && (
+              <>
+                <button
+                  onClick={() => onNavigate('privacy')}
+                  className="text-cyan-400 hover:text-cyan-300 underline underline-offset-4 transition-colors"
+                >
+                  Privacy Policy &amp; Data Protocol
+                </button>
+                <span className="text-slate-600">·</span>
+                <button
+                  onClick={() => onNavigate('terms')}
+                  className="text-teal-400 hover:text-teal-300 underline underline-offset-4 transition-colors"
+                >
+                  Terms &amp; Conditions
+                </button>
+                <span className="text-slate-600">·</span>
+                <button
+                  onClick={() => onNavigate('pages')}
+                  className="text-slate-400 hover:text-slate-200 transition-colors"
+                >
+                  Pages Hub
+                </button>
+                <span className="text-slate-600">·</span>
+              </>
+            )}
+            <a
+              href="/docs"
+              target="_blank"
+              rel="noreferrer"
+              className="text-indigo-400 hover:text-indigo-300 transition-colors"
+            >
+              API Docs
+            </a>
+            <span className="text-slate-600">·</span>
+            <a
+              href="https://github.com/DevEagleEye97/ForensIQ"
+              target="_blank"
+              rel="noreferrer"
+              className="hover:text-white transition-colors"
+            >
+              GitHub
+            </a>
+          </div>
+        </div>
+        <div className="max-w-7xl mx-auto mt-4 pt-3 border-t border-slate-900 text-center text-[10px] text-slate-600 font-mono">
+          Compliant with NIST SP 800-86 &amp; Federal Rules of Evidence Rule 902(14) · Zero-Disk In-Memory Analysis
         </div>
       </footer>
 

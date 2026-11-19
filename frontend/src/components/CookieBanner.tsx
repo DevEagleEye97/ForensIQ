@@ -69,15 +69,27 @@ export default function CookieBanner({ onNavigate }: CookieBannerProps) {
         >
           Essential Only
         </button>
-        <button
-          onClick={() => {
-            onNavigate('privacy');
-            setVisible(false);
-          }}
-          className="px-2 py-1.5 text-[11px] text-cyan-400 hover:text-cyan-300 hover:underline transition-colors ml-auto"
-        >
-          Read Policy
-        </button>
+        <div className="flex items-center gap-2 ml-auto text-[11px]">
+          <button
+            onClick={() => {
+              onNavigate('privacy');
+              setVisible(false);
+            }}
+            className="text-cyan-400 hover:text-cyan-300 hover:underline transition-colors"
+          >
+            Privacy Policy
+          </button>
+          <span className="text-slate-600">·</span>
+          <button
+            onClick={() => {
+              onNavigate('terms');
+              setVisible(false);
+            }}
+            className="text-teal-400 hover:text-teal-300 hover:underline transition-colors"
+          >
+            Terms
+          </button>
+        </div>
       </div>
     </aside>
   );

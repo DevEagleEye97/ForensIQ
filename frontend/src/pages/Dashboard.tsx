@@ -1115,6 +1115,49 @@ export default function Dashboard() {
         {/* Team Bhairava Human Story & Conviction */}
         <TeamSection />
 
+        {/* Compliance, Privacy & Evidentiary Terms Strip */}
+        <section className="max-w-screen-xl mx-auto px-4 sm:px-6 py-6 border-t border-slate-800/80 mt-8 text-xs font-mono text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2 text-slate-400">
+            <Shield className="w-4 h-4 text-cyan-400" />
+            <span>NIST SP 800-86 · ISO/IEC 27037 · FRE Rule 902(14) Certified</span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-4 text-[11px]">
+            <a
+              href="/privacy"
+              onClick={(e) => {
+                e.preventDefault();
+                window.history.pushState(null, '', '/privacy');
+                window.dispatchEvent(new PopStateEvent('popstate'));
+              }}
+              className="text-cyan-400 hover:text-cyan-300 transition-colors underline underline-offset-2"
+            >
+              Privacy Policy &amp; Data Protocol
+            </a>
+            <span>·</span>
+            <a
+              href="/terms"
+              onClick={(e) => {
+                e.preventDefault();
+                window.history.pushState(null, '', '/terms');
+                window.dispatchEvent(new PopStateEvent('popstate'));
+              }}
+              className="text-teal-400 hover:text-teal-300 transition-colors underline underline-offset-2"
+            >
+              Terms &amp; Conditions
+            </a>
+            <span>·</span>
+            <a
+              href="https://github.com/DevEagleEye97/ForensIQ"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-slate-400 hover:text-white transition-colors"
+            >
+              GitHub (DevEagleEye97/ForensIQ)
+            </a>
+          </div>
+        </section>
+
         {/* Floating AI Forensic Analyst Copilot Button (>_<) */}
         <div className="fixed bottom-6 right-6 z-40">
           <button

@@ -144,6 +144,7 @@ export default function App() {
             <SplashPage
               onEnter={() => navigateTo('dashboard')}
               onReplayCinematic={replayCinematic}
+              onNavigate={navigateTo}
             />
           ) : (
             <div className="min-h-screen bg-slate-950/60 text-slate-100 flex flex-col font-sans selection:bg-cyan-500/30 selection:text-cyan-200">
@@ -186,8 +187,18 @@ export default function App() {
                 <TeamSection />
               </div>
             )}
-            {page === 'privacy' && <PrivacyPolicyPage onBack={() => navigateTo('dashboard')} />}
-            {page === 'terms' && <TermsPage onBack={() => navigateTo('dashboard')} />}
+            {page === 'privacy' && (
+              <PrivacyPolicyPage
+                onBack={() => navigateTo('dashboard')}
+                onSwitchToTerms={() => navigateTo('terms')}
+              />
+            )}
+            {page === 'terms' && (
+              <TermsPage
+                onBack={() => navigateTo('dashboard')}
+                onSwitchToPrivacy={() => navigateTo('privacy')}
+              />
+            )}
             {page === 'not-found' && (
               <NotFoundPage
                 onGoHome={goHome}
