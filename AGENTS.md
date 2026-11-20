@@ -21,6 +21,7 @@ ForensIQ is an autonomous multi-modal digital forensics and deepfake detection p
      - `buildCommand`: `cd frontend && npm install && npm run build`
      - `outputDirectory`: `frontend/dist`
      - Rewrites: Route `/api/*`, `/health`, `/docs`, `/openapi.json`, `/redoc` to `/api/index.py`, and `/(.*)` to `/index.html`.
+   - **Python Version Locking**: Vercel defaults to experimental Python 3.14 if unpinned, breaking C-extensions like `greenlet` and `numpy`. Both `.python-version` (`3.12`) and `pyproject.toml` (`requires-python = "~=3.12.0"`) lock the runtime to Python 3.12 where stable binary wheels are used.
    - Vercel automatically deploys `api/index.py` via its Python Serverless Runtime and serves the built Vite frontend statically from `frontend/dist`.
 
 ---

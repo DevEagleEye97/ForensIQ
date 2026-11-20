@@ -6,14 +6,16 @@ Handler: /api/analyze (Multipart Ingestion & 3-Tier Multi-Modal Forensic Analysi
 import asyncio
 import os
 import json
-import uuid
 import hashlib
 import base64
 import io
 import logging
+import threading
+import time
+from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import List, Literal, Optional, Dict, Any, Tuple
+from typing import List, Literal, Optional, Dict, Any, Tuple, Callable, Coroutine, Union
 from pydantic import BaseModel
 
 from fastapi import APIRouter, File, UploadFile, Form, HTTPException, Depends, status
@@ -27,9 +29,18 @@ from PIL import Image
 from starlette.concurrency import run_in_threadpool
 
 from database import get_db
-from models import EvidenceVault, ForensicAnalysisResponse, ExifDataModel
+from models import (
+    EvidenceVault,
+    ForensicAnalysisResponse,
+    ExifDataModel,
+    MultimodalAnalysisResponse,
+    DifferentialCompareResponse,
+    ChatResponse,
+    ThreatMetric,
+    ThreatIntelResponse,
+)
 from services.forensics_engine import (
-    compute_ela, inspect_exif, compute_heuristic_fallback, sanitize_text,
+    sanitize_text,
     # New 4-check analytical engine imports
     parse_image_bytes,
     run_spatial_artifact_scan,
@@ -54,7 +65,6 @@ from services.ai_inference import (
     query_forensic_analyst_chat,
 )
 
-import time
 from concurrent.futures import ThreadPoolExecutor
 from services.cache import perceptual_hash, exif_lookup
 
@@ -63,12 +73,12 @@ router = APIRouter(prefix="/api", tags=["Forensic Workbench"])
 
 _CPU = ThreadPoolExecutor(max_workers=4, thread_name_prefix="fiq-cpu")
 
-async def cpu(fn, *args):
+async def cpu(fn: Callable[..., Any], *args: Any) -> Any:
     """CPU-bound forensics off the event loop (PIL/OpenCV release the GIL on heavy ops)."""
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(_CPU, fn, *args)
 
-async def safe(coro, fallback, timeout: float):
+async def safe(coro: Coroutine[Any, Any, Any], fallback: Any, timeout: float) -> Any:
     """Strict timeout + graceful fallback. One dead API never kills the demo."""
     try:
         return await asyncio.wait_for(coro, timeout)
@@ -87,23 +97,68 @@ class ForensicPipelineResult:
     sha256_hex: str
     case_id: Optional[str]
 
+    def to_image_response(self, latency_ms: int = 0) -> ForensicImageAnalysisResponse:
+        """Project into enriched 4-check response matching ForensIQ UI cards."""
+        return self.image_response.model_copy(update={"latency_ms": latency_ms})
 
-# In-Memory Cache (LRU / TTL) for Instant (< 2ms) Repeat Analysis (Efficiency Upgrade)
-_GLOBAL_FORENSIC_CACHE: Dict[str, Tuple[datetime, ForensicPipelineResult]] = {}
-_FORENSIC_CACHE: Dict[str, Tuple[datetime, ForensicImageAnalysisResponse]] = {}
-_ANALYZE_LEGACY_CACHE: Dict[str, Tuple[datetime, ForensicAnalysisResponse]] = {}
-_CACHE_TTL_SECONDS = 600  # 10 minutes TTL
-MAX_CACHE_ENTRIES = 200   # Bounded memory guard (Prevents DoS via memory exhaustion)
+    def to_legacy_response(self, latency_ms: int = 0) -> ForensicAnalysisResponse:
+        """Project into legacy /api/analyze response contract."""
+        return self.legacy_response.model_copy(update={"latency_ms": latency_ms})
 
-def _cache_put(cache_dict: Dict[str, Any], key: str, value: Any) -> None:
-    """Bounded cache insertion with LRU eviction."""
-    if len(cache_dict) >= MAX_CACHE_ENTRIES:
-        try:
-            oldest = next(iter(cache_dict))
-            cache_dict.pop(oldest, None)
-        except StopIteration:
-            pass
-    cache_dict[key] = value
+
+class ForensicMemoryCache:
+    """
+    Thread-safe, bounded LRU in-memory cache with TTL.
+    Key: SHA-256 hex string (64 chars).
+    Value: ForensicPipelineResult.
+    Guarantees repeat analysis latency < 2ms and cross-endpoint cache reuse.
+    """
+    def __init__(self, max_entries: int = 256, ttl_seconds: float = 600.0) -> None:
+        self._cache: OrderedDict[str, Tuple[float, Any]] = OrderedDict()
+        self._lock = threading.Lock()
+        self._max_entries = max_entries
+        self._ttl_seconds = ttl_seconds
+
+    def get(self, key: str) -> Optional[Any]:
+        with self._lock:
+            if key not in self._cache:
+                return None
+            ts, val = self._cache[key]
+            if (time.monotonic() - ts) > self._ttl_seconds:
+                del self._cache[key]
+                return None
+            self._cache.move_to_end(key)
+            return val
+
+    def put(self, key: str, val: Any) -> None:
+        with self._lock:
+            if key in self._cache:
+                self._cache.move_to_end(key)
+            self._cache[key] = (time.monotonic(), val)
+            if len(self._cache) > self._max_entries:
+                self._cache.popitem(last=False)  # LRU eviction
+
+    def clear(self) -> None:
+        with self._lock:
+            self._cache.clear()
+
+    def __len__(self) -> int:
+        with self._lock:
+            return len(self._cache)
+
+    def __contains__(self, key: str) -> bool:
+        with self._lock:
+            if key not in self._cache:
+                return False
+            ts, _ = self._cache[key]
+            if (time.monotonic() - ts) > self._ttl_seconds:
+                del self._cache[key]
+                return False
+            return True
+
+
+_FORENSIC_CACHE = ForensicMemoryCache(max_entries=256, ttl_seconds=600.0)
+_GLOBAL_FORENSIC_CACHE = _FORENSIC_CACHE
 
 
 async def _read_file_with_limit(file: UploadFile, max_bytes: int) -> bytes:
@@ -180,15 +235,11 @@ async def execute_forensic_pipeline(
     sha256_hex = hashlib.sha256(file_bytes).hexdigest()
 
     # ── Step 2: In-Memory SHA-256 Cache Check (Sub-2ms Repeat Analysis) ───────
-    now = datetime.now(timezone.utc)
-    if sha256_hex in _GLOBAL_FORENSIC_CACHE:
-        cached_time, cached_res = _GLOBAL_FORENSIC_CACHE[sha256_hex]
-        if (now - cached_time).total_seconds() < _CACHE_TTL_SECONDS:
-            latency_ms = int((time.perf_counter() - t0) * 1000)
-            cached_res.image_response.latency_ms = latency_ms
-            cached_res.legacy_response.latency_ms = latency_ms
-            logger.info("[CACHE HIT] Returning cached forensic pipeline result for %s (%dms)", sha256_hex[:12], latency_ms)
-            return cached_res
+    cached_res: Optional[ForensicPipelineResult] = _FORENSIC_CACHE.get(sha256_hex)
+    if cached_res is not None:
+        latency_ms = int((time.perf_counter() - t0) * 1000)
+        logger.info("[CACHE HIT] Returning cached forensic pipeline result for %s (%dms)", sha256_hex[:12], latency_ms)
+        return cached_res
 
     # Fast-path perceptual hash and EXIF memoization
     _ = perceptual_hash(sha256_hex, file_bytes)

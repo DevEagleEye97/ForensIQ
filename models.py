@@ -5,10 +5,12 @@ Architecture: Pydantic v2 Telemetry Contracts & SQLAlchemy ORM
 
 import json
 from datetime import datetime, timezone
-from typing import List, Literal, Optional, Dict, Any
+from typing import List, Literal, Optional, Dict, Any, Union
 from sqlalchemy import Column, String, Integer, Text, DateTime
 from pydantic import BaseModel, Field, ConfigDict
 from database import Base
+from services.forensics_engine import SimplifiedReportContract, RecaptureAnalysisContract
+
 
 
 # ==============================================================================
@@ -91,8 +93,8 @@ class ForensicAnalysisResponse(BaseModel):
     elaBase64: str
     case_id: Optional[str] = None
     evidence_fingerprint: Optional[str] = None
-    simplified_report: Optional[Dict[str, Any]] = None
-    recapture_analysis: Optional[Dict[str, Any]] = None
+    simplified_report: Optional[SimplifiedReportContract] = None
+    recapture_analysis: Optional[RecaptureAnalysisContract] = None
     latency_ms: int = Field(default=0, ge=0)
 
     model_config = ConfigDict(populate_by_name=True)
@@ -142,3 +144,86 @@ class DocumentAnalysisResponse(BaseModel):
     character_count: int
     word_count: int
     timestamp_utc: str
+
+
+class MultimodalAnalysisResponse(BaseModel):
+    status: str
+    case_id: str
+    evidence_fingerprint: str
+    caption_analyzed: str
+    cross_modal_correlation: Dict[str, Any]
+    deepfake_classifier: Dict[str, Any]
+    timestamp_utc: str
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class DivergentRegion(BaseModel):
+    x: int
+    y: int
+    w: int
+    h: int
+    intensity: float
+    verdict: str
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class DifferentialCompareResponse(BaseModel):
+    status: str
+    reference_sha256: str
+    suspect_sha256: str
+    reference_filename: str
+    suspect_filename: str
+    dimensions: str
+    divergence_pct: float
+    divergent_regions_count: int
+    divergent_regions: List[DivergentRegion]
+    heatmap_base64: str
+    verdict: str
+    verdict_status: str
+    summary: str
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+# Backwards compatibility alias
+DifferentialForensicsResponse = DifferentialCompareResponse
+
+
+class ChatResponse(BaseModel):
+    status: str
+    reply: str
+    model: str
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class ThreatMetric(BaseModel):
+    id: str
+    metric: str
+    value: Union[int, float]
+    unit: str
+    region: str
+    source: str
+    as_of: str
+    trend: str
+    status: str
+    description: str
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class ThreatIntelResponse(BaseModel):
+    status: str
+    as_of_latest: str
+    total_metrics: int
+    metrics: List[ThreatMetric]
+    disclaimer: str
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+# Backwards compatibility alias
+ThreatIntelligenceResponse = ThreatIntelResponse
+

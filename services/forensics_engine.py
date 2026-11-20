@@ -19,7 +19,6 @@ import struct
 import base64
 import hashlib
 import logging
-from datetime import datetime, timezone
 from typing import Any, Dict, List, Literal, Optional, Tuple
 
 import exifread
@@ -28,7 +27,8 @@ import numpy as np
 from PIL import Image, ImageChops, ImageFilter
 from fastapi import HTTPException, status
 from pydantic import BaseModel, Field, ConfigDict
-from starlette.concurrency import run_in_threadpool
+
+from services.consensus import infer_origin_class, build_verdict
 
 logger = logging.getLogger("forensiq.services.forensics_engine")
 
@@ -379,7 +379,7 @@ def run_frequency_anomaly_ela(
     image_bytes: bytes,
     quality: int = 90,
     mime_type: str = "image/jpeg",
-) -> Tuple[CheckStatus, float, str, str, List[str]]:
+) -> Tuple[CheckStatus, float, Literal["Normal", "Mismatched Compression"], str, List[str]]:
     """
     Methodology: ELA Compression Differential.
 
@@ -784,11 +784,11 @@ def evaluate_gan_fingerprint(
 # CONSENSUS ENGINE — Combine all 4 checks into final verdict & tamper score
 # ===========================================================================
 
-_STATUS_WEIGHT: Dict[CheckStatus, int] = {"Pass": 0, "Warn": 1, "Fail": 2}
-_STATUS_SCORE: Dict[CheckStatus, float] = {"Pass": 10.0, "Warn": 50.0, "Fail": 90.0}
-
-
-def generate_final_verdict(decompiled_data: dict, ela_variance: float = 0.0, vit_score: float = 0.0) -> dict:
+def generate_final_verdict(
+    decompiled_data: Dict[str, Any],
+    ela_variance: float = 0.0,
+    vit_score: float = 0.0,
+) -> Dict[str, Any]:
     """
     Adversarial-Resistant Consensus Engine.
     Catches scrubbed AI images via pixel analysis, while protecting real stripped photos.
@@ -1028,108 +1028,27 @@ def generate_simplified_report(
     c2pa = decompiled.get("c2pa_manifest") if decompiled else False
     hidden_code = gen_sig or ("C2PA Manifest" if c2pa else None)
 
-    # 1. Determine Flag Verdict
+    # 1. Determine Flag Verdict & Calibrated Confidence Level
     if verdict == "Likely AI-Generated" or (gen_sig or c2pa):
         flag: FlagVerdict = "RED_FLAG"
-        color = "#EF4444"
-        icon = "⚠"
-        status_msg = "Suspicious - Positive AI watermark or generator signature detected"
         conf_level: ConfidenceLevel = "HIGH"
     elif verdict == "Likely Authentic" or (tamper_probability <= 25 and checks.frequencyAnomaly == "Pass" and checks.metadataIntegrity == "Pass"):
         flag = "GREEN_FLAG"
-        color = "#10B981"
-        icon = "✓"
-        status_msg = "Authentic - Camera sensor provenance confirmed"
         conf_level = "HIGH"
     elif verdict == "Authentic (Metadata Stripped)":
         flag = "NEEDS_REVIEW"
-        color = "#F59E0B"
-        icon = "✓"
-        status_msg = "Authentic (Metadata Stripped) - No AI signatures found"
         conf_level = "MEDIUM"
     elif verdict == "Spliced / Edited" or (checks.frequencyAnomaly == "Fail" and checks.spatialArtifact in ("Warn", "Fail")):
         flag = "RED_FLAG"
-        color = "#EF4444"
-        icon = "⚠"
-        status_msg = "Suspicious - Inconsistent compression indicates spliced elements"
         conf_level = "HIGH" if tamper_probability >= 70 else "MEDIUM"
     elif verdict in ("Needs Review", "Needs Human Review"):
         flag = "NEEDS_REVIEW"
-        color = "#F59E0B"
-        icon = "?"
-        status_msg = "Uncertain - Human investigator review required"
         conf_level = "LOW"
     else:
         flag = "NEEDS_REVIEW"
-        color = "#F59E0B"
-        icon = "?"
-        status_msg = "Uncertain - Ambiguous indicators"
         conf_level = "LOW"
 
-    # 2. Extract Key Finding (short one-liner)
-    if flag == "RED_FLAG":
-        if hidden_code:
-            key_finding = f"Positive AI generator signature detected in file byte markers: '{hidden_code}'."
-        elif recapture.is_recaptured and checks.ganFingerprint == "Fail":
-            key_finding = "Image was screenshotted from a display and exhibits synthetic edge anomalies."
-        elif checks.ganFingerprint == "Fail":
-            key_finding = "Artificial intelligence generation patterns confidently detected across facial boundaries."
-        elif checks.frequencyAnomaly == "Fail":
-            key_finding = "Compression levels do not match, indicating pasted or spliced elements."
-        else:
-            key_finding = "Unnatural pixel boundaries detected consistent with digital photo manipulation."
-    elif flag == "GREEN_FLAG":
-        key_finding = "Image contains valid camera sensor metadata (Make/Model) and shows no signs of AI generation or editing software."
-    elif verdict == "Authentic (Metadata Stripped)":
-        key_finding = "No AI generator signatures were found. Camera metadata is missing, which is normal for images shared via WhatsApp, social media, or screenshots."
-    else:
-        key_finding = "No positive AI watermark found, but camera metadata is stripped (screenshot or re-encode)."
-
-    # 3. Plain English Explanation (max 3 sentences, <= 15 words per sentence)
-    if flag == "RED_FLAG":
-        if hidden_code:
-            explanation = (
-                f"Detected hidden generator signature: '{hidden_code}'. "
-                "This image contains metadata typical of AI synthesis. "
-                "Human review recommended for final verification."
-            )
-        elif recapture.is_recaptured:
-            explanation = (
-                "This image was re-captured from a digital screen. "
-                "Beneath the screenshot, compression and edge patterns indicate artificial tampering. "
-                "Human review recommended for final verification."
-            )
-        elif checks.frequencyAnomaly == "Fail":
-            explanation = (
-                "Like pasting a paper cutout into a photo, pixel compression does not match. "
-                "Different parts of this image were saved at different quality levels. "
-                "Human review recommended for final verification."
-            )
-        else:
-            explanation = (
-                "Microscopic pixel patterns do not match real camera lenses. "
-                "Artificial intelligence left subtle mathematical traces across boundaries. "
-                "Human review recommended for final verification."
-            )
-    elif flag == "GREEN_FLAG":
-        explanation = (
-            "Image contains valid camera sensor metadata (Make/Model) and shows no signs of AI generation or editing software. "
-            "Compression levels are uniform without spliced edges. "
-            "Human review recommended for final verification."
-        )
-    elif verdict == "Authentic (Metadata Stripped)":
-        explanation = (
-            "No AI generator signatures were found. "
-            "However, camera metadata is missing, which is normal for images shared via WhatsApp, social media, or screenshots. "
-            "Cannot definitively prove origin without EXIF, but NO evidence of AI synthesis exists."
-        )
-    else:
-        explanation = (
-            "Camera sensor metadata is missing, but no positive AI signature was detected. "
-            "This commonly occurs when authentic photos are screenshotted or shared via messaging apps. "
-            "Human review recommended for final verification."
-        )
-
+    # 2. Forensic Technical Limitations Notice
     limitations = (
         "Cannot definitively prove origin without EXIF, but NO evidence of AI synthesis exists."
     ) if verdict == "Authentic (Metadata Stripped)" else (
@@ -1137,9 +1056,7 @@ def generate_simplified_report(
         "Original high-resolution camera file required for definitive sensor verification."
     ) if flag == "NEEDS_REVIEW" else None
 
-    # TruthLens Verdict Wording System — Calibrated Origin Classification
-    from services.consensus import infer_origin_class, build_verdict
-
+    # 3. TruthLens Verdict Wording System — Calibrated Origin Classification
     has_camera = bool(decompiled.get("camera_exif")) if decompiled else False
     origin = infer_origin_class(
         tamper_pct=float(tamper_probability),
@@ -1149,7 +1066,7 @@ def generate_simplified_report(
         ela_status=checks.frequencyAnomaly,
         spatial_status=checks.spatialArtifact,
         gan_status=checks.ganFingerprint,
-        has_camera_exif=has_camera
+        has_camera_exif=has_camera,
     )
     v_data = build_verdict(origin, float(tamper_probability), str(conf_level))
 
@@ -1265,7 +1182,7 @@ def compute_ela(
     _ela_status, variance_pct, quant_status, ela_base64, _obs = run_frequency_anomaly_ela(
         image_bytes, quality=quality
     )
-    return ela_base64, variance_pct, quant_status  # type: ignore[return-value]
+    return ela_base64, variance_pct, quant_status
 
 
 def inspect_exif(

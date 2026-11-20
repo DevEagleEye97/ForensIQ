@@ -59,3 +59,6 @@ backups/*.db
 .DS_Store
 Thumbs.db
 audits/
+
+.vercel
+.env*

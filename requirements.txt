@@ -17,7 +17,7 @@ markitdown==0.1.9            # Microsoft MarkItDown: multi-format document to Ma
 aiosqlite==0.20.0            # Async SQLite driver for zero-blocking queries
 asyncpg>=0.29.0              # Async PostgreSQL driver for Supabase
 sqlalchemy==2.0.34           # SQL toolkit & ORM for parameterized secure queries
-greenlet==3.0.3              # Required for SQLAlchemy asyncio extension
+greenlet>=3.1.1              # Required for SQLAlchemy asyncio extension
 
 # --- Security, Rate Limiting & Reliability ---
 slowapi==0.1.10              # IP-based rate limiting
