@@ -1,4 +1,82 @@
-# forensIQ Backend - Agent Instructions
+# forensIQ Backend - Agent Instructions & Project Memory
+
+## Project Overview & Architecture
+ForensIQ is an autonomous multi-modal digital forensics and deepfake detection platform.
+- **Backend**: FastAPI (Python 3.12), async pipeline, SQLite (`forensiq_vault.db`), slowapi rate limiting, structured logging (`services/logging_conf.py`), Sentry integration.
+  - Entrypoints: `main.py` (local/production ASGI) and `api/index.py` (Vercel serverless entrypoint).
+- **Frontend**: Vite + React 18 + TypeScript + Tailwind CSS SPA (`frontend/`).
+  - Routing: React Router v7 (`frontend/src/App.tsx`).
+  - Build output: `frontend/dist/`.
+
+---
+
+## Deployment & Vercel Configuration Memory
+
+### Error: `[MISSING_SERVICES] Project framework is set to "services", but no services are declared`
+**Root Cause**:
+Vercel has set the project's **Framework Preset** to `"services"` (Vercel's polyglot monorepo / multi-service architecture). When this setting is active, Vercel strictly requires a `services` declaration block inside `vercel.json`.
+
+### How to Fix:
+
+#### Option 1: Configure `services` in `vercel.json` (Recommended for Vercel Monorepo)
+Update root `vercel.json` to define both the Vite frontend and Python backend services:
+```json
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "services": {
+    "frontend": {
+      "root": "frontend/"
+    },
+    "backend": {
+      "root": ".",
+      "entrypoint": "api/index.py"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": { "service": "backend" }
+    },
+    {
+      "source": "/health",
+      "destination": { "service": "backend" }
+    },
+    {
+      "source": "/docs",
+      "destination": { "service": "backend" }
+    },
+    {
+      "source": "/openapi.json",
+      "destination": { "service": "backend" }
+    },
+    {
+      "source": "/redoc",
+      "destination": { "service": "backend" }
+    },
+    {
+      "source": "/(.*)",
+      "destination": { "service": "frontend" }
+    }
+  ]
+}
+```
+
+#### Option 2: Change Project Framework in Vercel Dashboard (Standard Serverless / Split)
+If not using Vercel's multi-service feature:
+1. Open **Vercel Dashboard** -> Go to the Project.
+2. Navigate to **Settings** -> **General** -> **Build & Development Settings**.
+3. Change **Framework Preset** from `Services` to `Other` (or `Vite` if Root Directory is configured to `frontend`).
+4. Save and redeploy.
+
+---
+
+## Key Commands & Workflows
+- **Backend Run (Local)**: `uvicorn main:app --reload --port 8000` or `python main.py`
+- **Backend Tests**: `pytest test_suite.py`
+- **Frontend Dev**: `cd frontend && npm run dev`
+- **Frontend Build**: `cd frontend && npm run build`
+
+---
 
 ## Security Protocols
 
@@ -31,6 +109,8 @@
 - Maintain audit logs for sensitive operations
 - Implement data retention policies
 - Ensure proper access controls on all resources
+
+---
 
 ## Pre-Launch Checklist
 
