@@ -11,7 +11,6 @@ numpy==1.26.4                # Fast pixel array transformations and mathematics
 # --- File Triage & Deep Metadata Forensics ---
 exifread==3.0.0              # Pure Python library to read camera sensor and software headers
 filetype==1.2.0              # Detects true MIME type from file magic bytes (stops extension spoofing)
-markitdown==0.1.9            # Microsoft MarkItDown: multi-format document to Markdown converter
 
 # --- Database & Evidence Vault ---
 aiosqlite==0.20.0            # Async SQLite driver for zero-blocking queries

@@ -1,0 +1,13 @@
+venv/
+node_modules/
+frontend/node_modules/
+backups/
+audits/
+*.db
+*.sqlite
+.agent/
+frontend/.agents/
+frontend/.planning/
+frontend/.vscode/
+.vscode/
+.idea/
