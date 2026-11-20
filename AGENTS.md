@@ -12,61 +12,16 @@ ForensIQ is an autonomous multi-modal digital forensics and deepfake detection p
 
 ## Deployment & Vercel Configuration Memory
 
-### Error: `[MISSING_SERVICES] Project framework is set to "services", but no services are declared`
-**Root Cause**:
-Vercel has set the project's **Framework Preset** to `"services"` (Vercel's polyglot monorepo / multi-service architecture). When this setting is active, Vercel strictly requires a `services` declaration block inside `vercel.json`.
-
-### How to Fix:
-
-#### Option 1: Configure `services` in `vercel.json` (Recommended for Vercel Monorepo)
-Update root `vercel.json` to define both the Vite frontend and Python backend services:
-```json
-{
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "services": {
-    "frontend": {
-      "root": "frontend/"
-    },
-    "backend": {
-      "root": ".",
-      "entrypoint": "api/index.py"
-    }
-  },
-  "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": { "service": "backend" }
-    },
-    {
-      "source": "/health",
-      "destination": { "service": "backend" }
-    },
-    {
-      "source": "/docs",
-      "destination": { "service": "backend" }
-    },
-    {
-      "source": "/openapi.json",
-      "destination": { "service": "backend" }
-    },
-    {
-      "source": "/redoc",
-      "destination": { "service": "backend" }
-    },
-    {
-      "source": "/(.*)",
-      "destination": { "service": "frontend" }
-    }
-  ]
-}
-```
-
-#### Option 2: Change Project Framework in Vercel Dashboard (Standard Serverless / Split)
-If not using Vercel's multi-service feature:
-1. Open **Vercel Dashboard** -> Go to the Project.
-2. Navigate to **Settings** -> **General** -> **Build & Development Settings**.
-3. Change **Framework Preset** from `Services` to `Other` (or `Vite` if Root Directory is configured to `frontend`).
-4. Save and redeploy.
+### Root Cause & Permanent Solution:
+1. **Why `services` mode fails on this repo**:
+   Vercel Services strictly requires non-overlapping, disjoint directory paths (e.g. `apps/frontend` and `apps/backend`). In this repository, the Python backend files (`main.py`, `models.py`, `database.py`, `services/`) are located at the repository root `.`, and `frontend/` is a nested subfolder. In Services mode, Vercel rejects `"root": "."` as a parent directory of `"frontend/"`.
+2. **Permanent Solution (Standard Fullstack Setup)**:
+   - In **Vercel Dashboard** -> **Settings** -> **General** -> **Build & Development Settings**, set **Framework Preset** to **`Other`** (or None).
+   - In `vercel.json`:
+     - `buildCommand`: `cd frontend && npm install && npm run build`
+     - `outputDirectory`: `frontend/dist`
+     - Rewrites: Route `/api/*`, `/health`, `/docs`, `/openapi.json`, `/redoc` to `/api/index.py`, and `/(.*)` to `/index.html`.
+   - Vercel automatically deploys `api/index.py` via its Python Serverless Runtime and serves the built Vite frontend statically from `frontend/dist`.
 
 ---
 

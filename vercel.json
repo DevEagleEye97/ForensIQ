@@ -1,38 +1,31 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "services": {
-    "frontend": {
-      "root": "frontend/"
-    },
-    "backend": {
-      "root": ".",
-      "entrypoint": "api/index.py"
-    }
-  },
+  "buildCommand": "cd frontend && npm install && npm run build",
+  "outputDirectory": "frontend/dist",
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": { "service": "backend" }
+      "destination": "/api/index.py"
     },
     {
       "source": "/health",
-      "destination": { "service": "backend" }
+      "destination": "/api/index.py"
     },
     {
       "source": "/docs",
-      "destination": { "service": "backend" }
+      "destination": "/api/index.py"
     },
     {
       "source": "/openapi.json",
-      "destination": { "service": "backend" }
+      "destination": "/api/index.py"
     },
     {
       "source": "/redoc",
-      "destination": { "service": "backend" }
+      "destination": "/api/index.py"
     },
     {
       "source": "/(.*)",
-      "destination": { "service": "frontend" }
+      "destination": "/index.html"
     }
   ]
 }

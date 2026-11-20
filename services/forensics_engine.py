@@ -928,14 +928,6 @@ def build_consensus(
     )
     return tamper_probability, verdict, fallback_mode
 
-    logger.info(
-        "[CONSENSUS] tamper=%d%%  verdict=%s  fallback=%s  "
-        "spatial=%s  ela=%s  meta=%s  gan=%s  has_generator=%s",
-        tamper_probability, verdict, fallback_mode,
-        spatial_status, ela_status, meta_status, gan_status, has_generator,
-    )
-    return tamper_probability, verdict, fallback_mode
-
 
 # ===========================================================================
 # CHECK 3.5 — SCREENSHOT RE-CAPTURE DETECTION TEST (Mentor Insight)
