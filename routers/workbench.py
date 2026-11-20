@@ -11,6 +11,7 @@ import hashlib
 import base64
 import io
 import logging
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import List, Literal, Optional, Dict, Any, Tuple
 from pydantic import BaseModel
@@ -78,7 +79,17 @@ async def safe(coro, fallback, timeout: float):
 MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024  # 25 MB Security Guard
 MAX_IMAGE_PIXELS = 40_000_000  # 40 MP decompression bomb guard
 
+@dataclass
+class ForensicPipelineResult:
+    """Consolidated pipeline result serving both /api/analyze and /api/analyze/image."""
+    image_response: ForensicImageAnalysisResponse
+    legacy_response: ForensicAnalysisResponse
+    sha256_hex: str
+    case_id: Optional[str]
+
+
 # In-Memory Cache (LRU / TTL) for Instant (< 2ms) Repeat Analysis (Efficiency Upgrade)
+_GLOBAL_FORENSIC_CACHE: Dict[str, Tuple[datetime, ForensicPipelineResult]] = {}
 _FORENSIC_CACHE: Dict[str, Tuple[datetime, ForensicImageAnalysisResponse]] = {}
 _ANALYZE_LEGACY_CACHE: Dict[str, Tuple[datetime, ForensicAnalysisResponse]] = {}
 _CACHE_TTL_SECONDS = 600  # 10 minutes TTL
@@ -97,12 +108,9 @@ def _cache_put(cache_dict: Dict[str, Any], key: str, value: Any) -> None:
 
 async def _read_file_with_limit(file: UploadFile, max_bytes: int) -> bytes:
     """Read file in chunks, enforcing max size before full load."""
-    # Use the underlying file object for chunked reading
-    # UploadFile.file is a SpooledTemporaryFile (sync), run in threadpool
     def _read_chunks() -> bytes:
         chunks = []
         total = 0
-        # file.file is the underlying SpooledTemporaryFile
         while True:
             chunk = file.file.read(8192)
             if not chunk:
@@ -135,29 +143,24 @@ def _guard_image_dimensions(image_bytes: bytes) -> None:
         logger.warning("[INGEST] Could not verify image dimensions: %s", exc)
 
 
-@router.post("/analyze", response_model=ForensicAnalysisResponse, status_code=status.HTTP_200_OK)
-async def analyze_evidence(
-    file: UploadFile = File(...),
-    db: AsyncSession = Depends(get_db)
-):
+async def execute_forensic_pipeline(
+    file: UploadFile,
+    db: AsyncSession,
+) -> ForensicPipelineResult:
     """
-    Forensic Workbench Ingestion & Multi-Tier Analysis Pipeline:
-    1. Stream file bytes with 25MB limit enforcement (HTTP 413).
-    2. Validate magic bytes using filetype (only image/jpeg & image/png; reject spoofing).
-    3. Guard against decompression bombs (max 40MP).
-    4. Compute SHA-256 cryptographic hash of raw bytes for forensic chain-of-custody.
-    5. Run 4-Check Analytical Engine (delegates to /api/analyze/image logic):
-       - Check 1: Spatial Artifact Scan (Laplacian edge variance)
-       - Check 2: Frequency Anomaly / ELA (in-memory compression differential)
-       - Check 3: Metadata Integrity (EXIF camera + GPS + software fingerprinting)
-       - Check 4: GAN Fingerprint (HF ViT classifier + OpenRouter vision model)
-    6. Consensus engine → tamper probability + verdict
-    7. Persist evidence record into SQLite 'evidence_vault'.
-    8. Return structured telemetry payload matching the strict Pydantic contract.
+    Unified Forensic Ingestion & Multi-Tier Analysis Pipeline:
+    ──────────────────────────────────────────────────────────
+    1. Ingestion & Security Validation (25MB limit, 40MP decompression bomb guard, magic byte check)
+    2. Cryptographic SHA-256 fingerprinting & sub-2ms cache check
+    3. Concurrent 4-Tier Analytical Engine execution (Spatial, Frequency/ELA, Metadata, GAN)
+    4. Consensus arbitration → tamper probability & forensic verdict
+    5. Screenshot re-capture detection & plain-English report generation
+    6. Asynchronous persistence into evidence_vault table
+    7. Dual contract synthesis (ForensicImageAnalysisResponse & ForensicAnalysisResponse)
     """
     t0 = time.perf_counter()
 
-    # ── Step 1: Ingest & Validate ─────────────────────────────────────────────
+    # ── Step 1: Ingest & Security Validation ──────────────────────────────────
     file_bytes = await _read_file_with_limit(file, MAX_FILE_SIZE_BYTES)
     file_size = len(file_bytes)
 
@@ -174,17 +177,18 @@ async def analyze_evidence(
 
     mime_type = kind.mime
     sanitized_filename = sanitize_text(file.filename or "evidence.bin", max_length=120)
-
     sha256_hex = hashlib.sha256(file_bytes).hexdigest()
 
-    # Fast Cache Check for Sub-2ms Latency (Efficiency Upgrade)
+    # ── Step 2: In-Memory SHA-256 Cache Check (Sub-2ms Repeat Analysis) ───────
     now = datetime.now(timezone.utc)
-    if sha256_hex in _ANALYZE_LEGACY_CACHE:
-        cached_time, cached_resp = _ANALYZE_LEGACY_CACHE[sha256_hex]
+    if sha256_hex in _GLOBAL_FORENSIC_CACHE:
+        cached_time, cached_res = _GLOBAL_FORENSIC_CACHE[sha256_hex]
         if (now - cached_time).total_seconds() < _CACHE_TTL_SECONDS:
-            cached_resp.latency_ms = int((time.perf_counter() - t0) * 1000)
-            logger.info("[CACHE HIT] /api/analyze returning cached response for %s (%dms)", sha256_hex[:12], cached_resp.latency_ms)
-            return cached_resp
+            latency_ms = int((time.perf_counter() - t0) * 1000)
+            cached_res.image_response.latency_ms = latency_ms
+            cached_res.legacy_response.latency_ms = latency_ms
+            logger.info("[CACHE HIT] Returning cached forensic pipeline result for %s (%dms)", sha256_hex[:12], latency_ms)
+            return cached_res
 
     # Fast-path perceptual hash and EXIF memoization
     _ = perceptual_hash(sha256_hex, file_bytes)
@@ -200,7 +204,7 @@ async def analyze_evidence(
         fileStructure="Valid",
     )
 
-    # ── Step 2: Run Analytical Engine + AI Inference CONCURRENTLY (Efficiency Upgrade) ───
+    # ── Step 3: Run Analytical Engine + AI Inference Concurrently ─────────────
     async with httpx.AsyncClient() as client:
         hf_task = query_huggingface_classifier(client, file_bytes, mime_type)
         t3_task = query_openrouter_vision(client, file_bytes, mime_type)
@@ -220,10 +224,9 @@ async def analyze_evidence(
             safe(t3_task, (None, None, []), 5.5),
         )
 
-    # GAN Fingerprint
+    # ── Step 4: GAN Fingerprint & Consensus Arbitration ───────────────────────
     gan_status, gan_obs = evaluate_gan_fingerprint(hf_score, t3_score)
 
-    # Consensus engine (Consumes Decompiled Byte Provenance)
     tamper_probability, verdict, fallback_mode = build_consensus(
         spatial_status=spatial_status,
         ela_status=ela_status,
@@ -235,47 +238,43 @@ async def analyze_evidence(
         decompiled=decompiled,
     )
 
-    # Build anomaly narrative (compatible with old response format)
+    # Build anomaly narrative
     all_anomalies: list[str] = []
+    if decompiled.get("decompiled_clues"):
+        all_anomalies.extend(f"[Byte Decompiler] {c}" for c in decompiled["decompiled_clues"])
     if spatial_obs:
-        all_anomalies.append(f"Observation 1 (Tier 1: {spatial_obs[0]})")
-    else:
-        all_anomalies.append(f"Observation 1 (Tier 1: Uniform ELA compression distribution with {ela_variance_pct:.1f}% deviation)")
-
-    if hf_obs:
-        all_anomalies.append(f"Observation 2 (Tier 2: {hf_obs})")
-    elif hf_score is not None:
-        all_anomalies.append(f"Observation 2 (Tier 2: Baseline classification verified)")
-    else:
-        all_anomalies.append("Observation 2 (Tier 2: Classifier unavailable — heuristic fallback)")
-
-    if t3_obs:
-        all_anomalies.append(f"Observation 3 (Tier 3: {'; '.join(t3_obs)})")
-    elif t3_score is not None:
-        all_anomalies.append(f"Observation 3 (Tier 3: Vision model assessed tamper probability at {t3_score}%)")
-    else:
-        all_anomalies.append("Observation 3 (Tier 3: Vision AI unavailable — heuristic fallback)")
-
+        all_anomalies.append(f"[Spatial] {spatial_obs[0]}")
+    if ela_obs:
+        all_anomalies.append(f"[ELA] {ela_obs[0]}")
     if meta_obs:
         all_anomalies.extend(f"[Metadata] {o}" for o in meta_obs[:2])
     if gan_obs:
         all_anomalies.append(f"[GAN] {gan_obs[0]}")
+    if hf_obs:
+        all_anomalies.append(f"[HF Classifier] {hf_obs}")
+    if t3_obs:
+        all_anomalies.extend(f"[Vision AI] {o}" for o in t3_obs[:2])
+
+    if not all_anomalies:
+        all_anomalies.append(f"Uniform compression profile with {ela_variance_pct:.1f}% variance across 8x8 blocks.")
 
     # Classification model label
     if hf_score is not None and t3_score is not None:
-        classification_model = "prithivMLmods/Deep-Fake-Detector-v2-Model + OpenRouter Vision Ensemble"
+        if "Local Neural Spectral" in str(hf_obs) or "Local Neural Spectral" in str(t3_obs):
+            classification_model = "ViT-V2 Neural Spectral Classifier (Local 2D-FFT Ensemble)"
+        else:
+            classification_model = "prithivMLmods/Deep-Fake-Detector-v2-Model + OpenRouter Vision Ensemble"
     elif hf_score is not None:
-        classification_model = "prithivMLmods/Deep-Fake-Detector-v2-Model"
+        classification_model = "ViT-V2 Neural Spectral Classifier (Local 2D-FFT)" if "Local Neural Spectral" in str(hf_obs) else "prithivMLmods/Deep-Fake-Detector-v2-Model"
     elif t3_score is not None:
         classification_model = "OpenRouter Vision Model"
     else:
         classification_model = "Heuristic Fallback (Local ELA + EXIF)"
 
-    # ── Step 3: Persist to evidence_vault ─────────────────────────────────────
+    # ── Step 5: Persist to evidence_vault ─────────────────────────────────────
     timestamp_prefix = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
     case_id = f"CASE-{timestamp_prefix}-{sha256_hex[:8].upper()}"
     case_id_returned = case_id
-    warning = None
 
     try:
         stmt = select(EvidenceVault).where(EvidenceVault.file_hash == sha256_hex)
@@ -307,7 +306,6 @@ async def analyze_evidence(
             logger.info("[VAULT] Archived evidence record %s into evidence_vault table.", case_id)
     except IntegrityError as db_exc:
         await db.rollback()
-        # Race condition: another request inserted the same hash
         logger.warning("[VAULT] IntegrityError on insert, re-selecting existing record: %s", db_exc)
         try:
             stmt = select(EvidenceVault).where(EvidenceVault.file_hash == sha256_hex)
@@ -315,278 +313,16 @@ async def analyze_evidence(
             existing = res.scalar_one_or_none()
             if existing:
                 case_id_returned = existing.case_id
-                warning = "Duplicate upload detected — returning existing case ID"
             else:
                 case_id_returned = None
-                warning = "Database persistence failed — analysis completed but not archived"
         except Exception:
             case_id_returned = None
-            warning = "Database persistence failed — analysis completed but not archived"
     except Exception as db_exc:
         await db.rollback()
         logger.error("[VAULT] Failed to persist evidence record: %s", db_exc)
         case_id_returned = None
-        warning = "Database persistence failed — analysis completed but not archived"
 
-    # ── Step 4: Return Structured Telemetry JSON Payload Matching Pydantic Contract
-    exif_data = ExifDataModel(
-        software=metadata_contract.software,
-        cameraMake=metadata_contract.camera,
-        fileStructure=metadata_contract.fileStructure,
-        quantizationHash="Mismatched Compression" if str(quantization_status).lower() == "mismatched compression" else "Normal"
-    )
-
-    # ── Generate TruthLens Simplified Report & Re-Capture Test ──────────
-    try:
-        recapture = await cpu(
-            detect_screenshot_recapture, file_bytes, mime_type, metadata_contract.camera
-        )
-    except Exception as exc:
-        logger.warning("[RECAPTURE] Screenshot detection failed: %s", exc)
-        recapture = RecaptureAnalysisContract(
-            is_recaptured=False,
-            recapture_confidence=0,
-            signals_detected=[],
-            ui_badge=None,
-            recapture_adjusted_verdict=None
-        )
-
-    checks_c = ChecksContract(
-        spatialArtifact=spatial_status,
-        frequencyAnomaly=ela_status,
-        metadataIntegrity=meta_status,
-        ganFingerprint=gan_status,
-    )
-
-    try:
-        simplified = generate_simplified_report(
-            tamper_probability, verdict, checks_c, recapture, all_anomalies, decompiled=decompiled
-        )
-    except Exception as exc:
-        logger.warning("[SIMPLIFIED_REPORT] Report generation failed: %s", exc)
-        simplified = generate_simplified_report(
-            tamper_probability, verdict, checks_c, recapture, all_anomalies, decompiled={}
-        )
-
-    latency_ms = int((time.perf_counter() - t0) * 1000)
-
-    response_obj = ForensicAnalysisResponse(
-        hash=f"SHA256: {sha256_hex}",
-        evidence_fingerprint=f"SHA256: {sha256_hex}",
-        tamperProbability=tamper_probability,
-        verdict=verdict,
-        simplified_report=simplified.model_dump(),
-        recapture_analysis=recapture.model_dump(),
-        classificationModel=classification_model,
-        exifData=exif_data,
-        anomalies=all_anomalies,
-        elaBase64=ela_base64 or "",
-        case_id=case_id_returned,
-        latency_ms=latency_ms
-    )
-    _cache_put(_ANALYZE_LEGACY_CACHE, sha256_hex, (now, response_obj))
-    return response_obj
-
-
-# ==============================================================================
-# NEW: /api/analyze/image — 4-Check Analytical Engine
-# Returns the enriched JSON contract matching the UI cards exactly:
-#   checks.spatialArtifact | checks.frequencyAnomaly |
-#   checks.metadataIntegrity | checks.ganFingerprint
-#   metadata.{sha256, format, size, camera, gps, modified, software}
-#   tamperProbability | verdict | elaBase64 | anomalies
-# ==============================================================================
-
-@router.post(
-    "/analyze/image",
-    response_model=ForensicImageAnalysisResponse,
-    status_code=status.HTTP_200_OK,
-    summary="4-Check Forensic Image Analysis",
-    description=(
-        "Advanced 4-tier analytical engine: Spatial Artifact Scan (Laplacian), "
-        "Frequency Anomaly ELA, EXIF Metadata Integrity, and GAN Fingerprint (HF + OpenRouter). "
-        "Returns enriched JSON matching the ForensIQ dashboard UI cards precisely."
-    ),
-)
-async def analyze_image_evidence(
-    file: UploadFile = File(...),
-    db: AsyncSession = Depends(get_db),
-) -> ForensicImageAnalysisResponse:
-    """
-    4-Tier Forensic Analysis Pipeline:
-    ─────────────────────────────────
-    1. Ingest & validate (25 MB limit, magic byte check, SHA-256 fingerprint, 40MP bomb guard)
-    2. Check 1 — Spatial Artifact Scan (Laplacian edge variance) [threadpool]
-    3. Check 2 — Frequency Anomaly / ELA (in-memory compression differential) [threadpool]
-    4. Check 3 — Metadata Integrity (EXIF camera + GPS + software fingerprinting) [threadpool]
-    5. Check 4 — GAN Fingerprint (HF ViT classifier + OpenRouter vision model)
-    6. Consensus engine → tamper probability + verdict
-    7. Persist to evidence_vault
-    8. Return structured telemetry matching frontend contract
-    """
-
-    t0 = time.perf_counter()
-
-    # ── Step 1: Ingest & Validate ─────────────────────────────────────────────
-    file_bytes = await _read_file_with_limit(file, MAX_FILE_SIZE_BYTES)
-    file_size = len(file_bytes)
-
-    _guard_image_dimensions(file_bytes)
-
-    kind = filetype.guess(file_bytes)
-    if not kind or kind.mime not in ("image/jpeg", "image/png"):
-        detected = kind.mime if kind else "unknown / raw bytes"
-        logger.warning("[ANALYZE/IMAGE] Rejected magic byte: %s", detected)
-        raise HTTPException(
-            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            detail=f"Unsupported Media Type: Allowed image/jpeg and image/png. Detected: {detected}.",
-        )
-
-    mime_type = kind.mime
-    sanitized_filename = sanitize_text(file.filename or "evidence.bin", max_length=120)
-
-    sha256_hex = hashlib.sha256(file_bytes).hexdigest()
-
-    # Fast Cache Check for Sub-2ms Latency (Efficiency Upgrade)
-    now = datetime.now(timezone.utc)
-    if sha256_hex in _FORENSIC_CACHE:
-        cached_time, cached_resp = _FORENSIC_CACHE[sha256_hex]
-        if (now - cached_time).total_seconds() < _CACHE_TTL_SECONDS:
-            cached_resp.latency_ms = int((time.perf_counter() - t0) * 1000)
-            logger.info("[CACHE HIT] /api/analyze/image returning cached response for %s (%dms)", sha256_hex[:12], cached_resp.latency_ms)
-            return cached_resp
-
-    # Fast-path perceptual hash and EXIF memoization
-    _ = perceptual_hash(sha256_hex, file_bytes)
-
-    # ── Steps 2 & 5: Run 4-Check Analytical Engine + AI Concurrently (Efficiency Upgrade) ──
-    meta_fallback = MetadataContract(
-        sha256=sha256_hex,
-        format=mime_type.split("/")[-1].upper(),
-        size=f"{file_size / 1024:.1f} KB",
-        camera="Unknown",
-        gps="Not available",
-        modified="Not recorded",
-        software="None",
-        fileStructure="Valid",
-    )
-
-    async with httpx.AsyncClient() as client:
-        hf_task = query_huggingface_classifier(client, file_bytes, mime_type)
-        t3_task = query_openrouter_vision(client, file_bytes, mime_type)
-        (
-            decompiled,
-            (spatial_status, spatial_std, spatial_obs),
-            (ela_status, ela_variance_pct, quantization_status, ela_base64, ela_obs),
-            (meta_status, metadata_contract, meta_obs),
-            (hf_score, hf_obs),
-            (t3_score, t3_verdict, t3_obs),
-        ) = await asyncio.gather(
-            safe(cpu(parse_image_bytes, file_bytes), {"format": None, "markers": [], "generator_signature": None, "camera_exif": {}, "software_signature": None, "c2pa_manifest": False, "png_text_chunks": [], "decompiled_clues": []}, 5.0),
-            safe(cpu(run_spatial_artifact_scan, file_bytes), ("Warn", 0.0, ["Spatial scan deferred"]), 5.0),
-            safe(cpu(run_frequency_anomaly_ela, file_bytes, 90, mime_type), ("Warn", 0.0, "Normal", "", ["Frequency scan deferred"]), 5.0),
-            safe(cpu(run_metadata_integrity, file_bytes, mime_type, file_size), ("Warn", meta_fallback, ["Metadata extraction deferred"]), 5.0),
-            safe(hf_task, (None, None), 5.0),
-            safe(t3_task, (None, None, []), 5.5),
-        )
-
-    # ── Check 4: GAN Fingerprint mapping ─────────────────────────────────────
-    gan_status, gan_obs = evaluate_gan_fingerprint(hf_score, t3_score)
-
-    # ── Step 6: Consensus engine (Consumes Decompiled Byte Provenance) ─────────
-    tamper_probability, verdict, fallback_mode = build_consensus(
-        spatial_status=spatial_status,
-        ela_status=ela_status,
-        ela_variance_pct=ela_variance_pct,
-        meta_status=meta_status,
-        gan_status=gan_status,
-        hf_score=hf_score,
-        t3_score=t3_score,
-        decompiled=decompiled,
-    )
-
-    # ── Build anomaly narrative ───────────────────────────────────────────────
-    all_anomalies: list[str] = []
-    if decompiled.get("decompiled_clues"):
-        all_anomalies.extend(f"[Byte Decompiler] {c}" for c in decompiled["decompiled_clues"])
-    if spatial_obs:
-        all_anomalies.append(f"[Spatial] {spatial_obs[0]}")
-    if ela_obs:
-        all_anomalies.append(f"[ELA] {ela_obs[0]}")
-    if meta_obs:
-        all_anomalies.extend(f"[Metadata] {o}" for o in meta_obs[:2])
-    if gan_obs:
-        all_anomalies.append(f"[GAN] {gan_obs[0]}")
-    if hf_obs:
-        all_anomalies.append(f"[HF Classifier] {hf_obs}")
-    if t3_obs:
-        all_anomalies.extend(f"[Vision AI] {o}" for o in t3_obs[:2])
-
-    # ── Classification model label ────────────────────────────────────────────
-    if hf_score is not None and t3_score is not None:
-        if "Local Neural Spectral" in str(hf_obs) or "Local Neural Spectral" in str(t3_obs):
-            classification_model = "ViT-V2 Neural Spectral Classifier (Local 2D-FFT Ensemble)"
-        else:
-            classification_model = "prithivMLmods/Deep-Fake-Detector-v2-Model + OpenRouter Vision Ensemble"
-    elif hf_score is not None:
-        classification_model = "ViT-V2 Neural Spectral Classifier (Local 2D-FFT)" if "Local Neural Spectral" in str(hf_obs) else "prithivMLmods/Deep-Fake-Detector-v2-Model"
-    elif t3_score is not None:
-        classification_model = "OpenRouter Vision Model"
-    else:
-        classification_model = "Heuristic Fallback (Local ELA + EXIF)"
-
-    # ── Step 7: Persist to evidence_vault ────────────────────────────────────
-    timestamp_prefix = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
-    case_id = f"CASE-{timestamp_prefix}-{sha256_hex[:8].upper()}"
-    case_id_returned = case_id
-
-    try:
-        stmt = select(EvidenceVault).where(EvidenceVault.file_hash == sha256_hex)
-        res = await db.execute(stmt)
-        existing = res.scalar_one_or_none()
-
-        if existing:
-            case_id = existing.case_id
-            case_id_returned = case_id
-            logger.info("[ANALYZE/IMAGE] Duplicate hash %s → reusing case %s", sha256_hex[:12], case_id)
-        else:
-            vault_entry = EvidenceVault(
-                case_id=case_id,
-                file_name=sanitized_filename,
-                file_hash=sha256_hex,
-                file_size_bytes=file_size,
-                mime_type=mime_type,
-                tamper_probability=tamper_probability,
-                verdict=verdict,
-                classification_model=classification_model,
-                exif_software=metadata_contract.software,
-                camera_make=metadata_contract.camera,
-                anomalies_json=json.dumps(all_anomalies),
-                ela_base64_preview=ela_base64,
-                timestamp_utc=datetime.now(timezone.utc),
-            )
-            db.add(vault_entry)
-            await db.commit()
-            logger.info("[ANALYZE/IMAGE] Archived evidence %s to vault.", case_id)
-    except IntegrityError as db_exc:
-        await db.rollback()
-        logger.warning("[ANALYZE/IMAGE] IntegrityError on insert, re-selecting: %s", db_exc)
-        try:
-            stmt = select(EvidenceVault).where(EvidenceVault.file_hash == sha256_hex)
-            res = await db.execute(stmt)
-            existing = res.scalar_one_or_none()
-            if existing:
-                case_id_returned = existing.case_id
-            else:
-                case_id_returned = None
-        except Exception:
-            case_id_returned = None
-    except Exception as db_exc:
-        await db.rollback()
-        logger.error("[ANALYZE/IMAGE] DB persistence failed: %s", db_exc)
-        case_id_returned = None
-
-    # ── Step 8: TruthLens Re-Capture & Plain English Simplification ───────────
+    # ── Step 6: TruthLens Screenshot Re-Capture & Simplified Report ───────────
     try:
         recapture_analysis = await cpu(
             detect_screenshot_recapture, file_bytes, mime_type, metadata_contract.camera
@@ -600,6 +336,7 @@ async def analyze_image_evidence(
             ui_badge=None,
             recapture_adjusted_verdict=None
         )
+
     if recapture_analysis.is_recaptured:
         all_anomalies.insert(
             0,
@@ -639,7 +376,6 @@ async def analyze_image_evidence(
             decompiled={},
         )
 
-    # Build optional signals object with real measured numbers
     signals = {
         "spatial_patch_std": round(spatial_std, 2),
         "ela_variance_pct": round(ela_variance_pct, 2),
@@ -650,9 +386,17 @@ async def analyze_image_evidence(
         ) if (hf_score is not None or t3_score is not None) else None
     }
 
+    exif_data = ExifDataModel(
+        software=metadata_contract.software,
+        cameraMake=metadata_contract.camera,
+        fileStructure=metadata_contract.fileStructure,
+        quantizationHash="Mismatched Compression" if str(quantization_status).lower() == "mismatched compression" else "Normal"
+    )
+
     latency_ms = int((time.perf_counter() - t0) * 1000)
 
-    response_obj = ForensicImageAnalysisResponse(
+    # ── Step 7: Dual Contract Synthesis & Cache Population ────────────────────
+    image_response = ForensicImageAnalysisResponse(
         case_id=case_id_returned,
         evidence_fingerprint=f"SHA256: {sha256_hex}",
         tamperProbability=tamper_probability,
@@ -670,8 +414,79 @@ async def analyze_image_evidence(
         decompiled_markers=decompiled.get("markers"),
         latency_ms=latency_ms,
     )
-    _cache_put(_FORENSIC_CACHE, sha256_hex, (now, response_obj))
-    return response_obj
+
+    legacy_response = ForensicAnalysisResponse(
+        hash=f"SHA256: {sha256_hex}",
+        evidence_fingerprint=f"SHA256: {sha256_hex}",
+        tamperProbability=tamper_probability,
+        verdict=verdict,
+        simplified_report=simplified_report.model_dump(),
+        recapture_analysis=recapture_analysis.model_dump(),
+        classificationModel=classification_model,
+        exifData=exif_data,
+        anomalies=all_anomalies,
+        elaBase64=ela_base64 or "",
+        case_id=case_id_returned,
+        latency_ms=latency_ms,
+    )
+
+    pipeline_result = ForensicPipelineResult(
+        image_response=image_response,
+        legacy_response=legacy_response,
+        sha256_hex=sha256_hex,
+        case_id=case_id_returned,
+    )
+
+    _cache_put(_GLOBAL_FORENSIC_CACHE, sha256_hex, (now, pipeline_result))
+    _cache_put(_FORENSIC_CACHE, sha256_hex, (now, image_response))
+    _cache_put(_ANALYZE_LEGACY_CACHE, sha256_hex, (now, legacy_response))
+
+    return pipeline_result
+
+
+# ==============================================================================
+# /api/analyze — Legacy Multipart Forensic Analysis Endpoint
+# ==============================================================================
+
+@router.post("/analyze", response_model=ForensicAnalysisResponse, status_code=status.HTTP_200_OK)
+async def analyze_evidence(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db)
+) -> ForensicAnalysisResponse:
+    """
+    Forensic Workbench Ingestion & Multi-Tier Analysis Pipeline:
+    Unified entry point returning legacy ForensicAnalysisResponse with sub-2ms caching.
+    """
+    pipeline_result = await execute_forensic_pipeline(file, db)
+    return pipeline_result.legacy_response
+
+
+# ==============================================================================
+# /api/analyze/image — 4-Check Analytical Engine
+# Returns the enriched JSON contract matching the UI cards exactly
+# ==============================================================================
+
+@router.post(
+    "/analyze/image",
+    response_model=ForensicImageAnalysisResponse,
+    status_code=status.HTTP_200_OK,
+    summary="4-Check Forensic Image Analysis",
+    description=(
+        "Advanced 4-tier analytical engine: Spatial Artifact Scan (Laplacian), "
+        "Frequency Anomaly ELA, EXIF Metadata Integrity, and GAN Fingerprint (HF + OpenRouter). "
+        "Returns enriched JSON matching the ForensIQ dashboard UI cards precisely."
+    ),
+)
+async def analyze_image_evidence(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+) -> ForensicImageAnalysisResponse:
+    """
+    4-Tier Forensic Analysis Pipeline:
+    Unified entry point returning rich ForensicImageAnalysisResponse with sub-2ms caching.
+    """
+    pipeline_result = await execute_forensic_pipeline(file, db)
+    return pipeline_result.image_response
 
 
 # ==============================================================================
