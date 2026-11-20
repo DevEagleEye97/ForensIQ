@@ -230,9 +230,10 @@ export default function HistoryPage() {
             <input
               type="text"
               placeholder="Search filename or SHA-256..."
+              aria-label="Search filename or SHA-256"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors min-h-[38px] font-mono"
+              className="w-full pl-9 pr-3 py-1.5 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-slate-200 placeholder-slate-400 focus:outline-none focus:border-indigo-500 transition-colors min-h-[38px] font-mono"
             />
           </div>
         </div>

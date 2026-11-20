@@ -202,7 +202,8 @@ export default function ForensicChatbot({ isOpen, onClose, caseContext }: Forens
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Ask forensic analyst about evidence..."
-          className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 font-mono"
+          aria-label="Ask forensic analyst about evidence"
+          className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-cyan-500 font-mono"
         />
         <button
           type="submit"

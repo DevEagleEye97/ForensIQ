@@ -394,9 +394,10 @@ export default function PromptModelStudio({
                     step="0.05"
                     value={temperature}
                     onChange={(e) => setTemperature(parseFloat(e.target.value))}
+                    aria-label="Temperature slider"
                     className="w-full accent-cyan-400 cursor-pointer h-1.5 bg-slate-800 rounded-lg"
                   />
-                  <span className="text-[10px] text-slate-500 font-mono">Low = Deterministic forensic consensus</span>
+                  <span className="text-[10px] text-slate-400 font-mono">Low = Deterministic forensic consensus</span>
                 </div>
 
                 <div className="space-y-1">
@@ -411,9 +412,10 @@ export default function PromptModelStudio({
                     step="0.05"
                     value={topP}
                     onChange={(e) => setTopP(parseFloat(e.target.value))}
+                    aria-label="Top P nucleus sampling slider"
                     className="w-full accent-indigo-400 cursor-pointer h-1.5 bg-slate-800 rounded-lg"
                   />
-                  <span className="text-[10px] text-slate-500 font-mono">Limits candidate vocabulary tail</span>
+                  <span className="text-[10px] text-slate-400 font-mono">Limits candidate vocabulary tail</span>
                 </div>
 
                 <div className="flex flex-col justify-end">
@@ -549,10 +551,11 @@ export default function PromptModelStudio({
                 <input
                   type="text"
                   placeholder="Drop an analytical finding or coordinate marker (e.g. 'Compression edge artifact at y:320')..."
+                  aria-label="Drop an analytical finding or coordinate marker"
                   value={newNoteText}
                   onChange={(e) => setNewNoteText(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && addNote()}
-                  className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 placeholder:text-slate-600 font-mono focus:outline-none focus:border-cyan-500"
+                  className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 placeholder:text-slate-400 font-mono focus:outline-none focus:border-cyan-500"
                 />
                 <button
                   onClick={addNote}

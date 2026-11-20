@@ -12,7 +12,6 @@ from database import Base
 from services.forensics_engine import SimplifiedReportContract, RecaptureAnalysisContract
 
 
-
 # ==============================================================================
 # 1. SQLALCHEMY EVIDENCE VAULT ORM MODEL
 # ==============================================================================

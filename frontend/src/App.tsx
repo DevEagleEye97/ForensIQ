@@ -1,6 +1,4 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
-import SplashPage from './pages/SplashPage';
-import Dashboard from './pages/Dashboard';
 import AppHeader, { type Page } from './components/AppHeader';
 import TeamSection from './components/TeamSection';
 import CookieBanner from './components/CookieBanner';
@@ -12,6 +10,8 @@ import SmoothScroll from './components/SmoothScroll';
 import { ScanLine, Settings, Shield, Github } from 'lucide-react';
 
 // Code Splitting (FCP/LCP Optimization)
+const SplashPage = lazy(() => import('./pages/SplashPage'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
 const WorkbenchPage = lazy(() => import('./pages/WorkbenchPage'));
 const LandingPage = lazy(() => import('./pages/LandingPage'));
 const ComparePage = lazy(() => import('./pages/ComparePage'));
@@ -193,11 +193,20 @@ export default function App() {
 
         <div className="content-layer">
           {view === 'splash' ? (
-            <SplashPage
-              onEnter={() => navigateTo('dashboard')}
-              onReplayCinematic={replayCinematic}
-              onNavigate={navigateTo}
-            />
+            <Suspense fallback={
+              <div className="min-h-screen flex items-center justify-center p-12 text-cyan-400 font-mono text-sm bg-slate-950">
+                <div className="flex items-center gap-3">
+                  <div className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping" />
+                  <span>INITIALIZING FORENSIQ TERMINAL...</span>
+                </div>
+              </div>
+            }>
+              <SplashPage
+                onEnter={() => navigateTo('dashboard')}
+                onReplayCinematic={replayCinematic}
+                onNavigate={navigateTo}
+              />
+            </Suspense>
           ) : (
             <div className="min-h-screen bg-slate-950/60 text-slate-100 flex flex-col font-sans selection:bg-cyan-500/30 selection:text-cyan-200">
               {/* Top Application Header */}
@@ -323,8 +332,9 @@ export default function App() {
                   <span>·</span>
                   <button
                     onClick={() => navigateTo('not-found')}
-                    className="hover:text-slate-300 transition-colors text-slate-500 hover:text-slate-300"
+                    className="hover:text-slate-300 transition-colors text-slate-400"
                     title="Preview Custom 404 Page"
+                    aria-label="Preview Custom 404 Page"
                   >
                     404 View
                   </button>

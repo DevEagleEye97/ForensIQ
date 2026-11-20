@@ -584,7 +584,7 @@ export default function Dashboard() {
               {/* Pulsing Scan Line Beam */}
               <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-cyan-400 to-transparent opacity-60 animate-pulse pointer-events-none" />
 
-              <input {...getInputProps()} disabled={analyzing} />
+              <input {...getInputProps()} disabled={analyzing} aria-label="Upload evidence file" />
 
               <AnimatePresence mode="wait">
                 {analyzing ? (

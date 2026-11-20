@@ -377,6 +377,7 @@ export default function CinematicLoader({ onComplete, skippable = true }: Cinema
       {skippable && (
         <button
           onClick={onComplete}
+          aria-label="Skip introductory animation"
           className="absolute top-4 right-4 z-50 text-[10px] text-slate-400 hover:text-cyan-300 tracking-wider font-mono px-3 py-1.5 rounded-lg border border-slate-800 bg-black/60 hover:border-cyan-500/50 backdrop-blur-md transition-all duration-200"
           title="Skip Intro (Escape)"
         >

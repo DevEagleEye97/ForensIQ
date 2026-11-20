@@ -171,6 +171,7 @@ export default function WorkbenchPage() {
             <input
               type="file"
               accept="image/jpeg,image/png"
+              aria-label="Upload JPEG or PNG evidence to analyze"
               onChange={handleFileUpload}
               className="hidden"
             />

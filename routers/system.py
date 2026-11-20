@@ -98,7 +98,6 @@ async def get_system_status(db: AsyncSession = Depends(get_db)):
     )
 
 
-
 @router.post("/backup", tags=["System Administration"])
 async def trigger_vault_backup(
     x_admin_key: str = Header(None, alias="X-Admin-Key")

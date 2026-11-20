@@ -25,9 +25,6 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (id.includes('node_modules/three')) {
-            return 'vendor-three';
-          }
           if (id.includes('node_modules/recharts')) {
             return 'vendor-recharts';
           }
@@ -36,9 +33,6 @@ export default defineConfig({
           }
           if (id.includes('node_modules/framer-motion')) {
             return 'vendor-framer-motion';
-          }
-          if (id.includes('node_modules/gsap')) {
-            return 'vendor-gsap';
           }
           if (id.includes('node_modules/lucide-react')) {
             return 'vendor-lucide';

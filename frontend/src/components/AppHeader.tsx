@@ -102,7 +102,7 @@ export default function AppHeader({ activePage, onNavigate, onGoHome }: AppHeade
                 <span className="text-sm sm:text-base font-black tracking-tight bg-gradient-to-r from-indigo-400 via-sky-300 to-teal-300 bg-clip-text text-transparent font-mono">
                   ForensIQ
                 </span>
-                <span className="text-[8px] text-slate-500 font-mono block -mt-1 hidden md:block">CYBER FORENSICS v2.0</span>
+                <span className="text-[8px] text-slate-400 font-mono block -mt-1 hidden md:block">CYBER FORENSICS v2.0</span>
               </div>
             </button>
 
@@ -195,7 +195,7 @@ export default function AppHeader({ activePage, onNavigate, onGoHome }: AppHeade
                   </span>
                 ) : (
                   <span className="text-slate-400 flex items-center gap-1">
-                    <Database className="w-3 h-3 text-slate-500" />
+                    <Database className="w-3 h-3 text-slate-400" />
                     Vault Ready
                   </span>
                 )}
@@ -342,7 +342,7 @@ export default function AppHeader({ activePage, onNavigate, onGoHome }: AppHeade
             >
               <div className="max-w-screen-xl mx-auto px-4 py-3">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
                     autoFocus
                     value={searchQuery}
@@ -353,8 +353,9 @@ export default function AppHeader({ activePage, onNavigate, onGoHome }: AppHeade
                         setSearchOpen(false);
                       }
                     }}
+                    aria-label="Search SHA-256 hash, evidence filename, or case ID"
                     placeholder="Search SHA-256 hash, evidence filename, or case ID (Press Enter)..."
-                    className="w-full pl-9 pr-4 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 font-mono"
+                    className="w-full pl-9 pr-4 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs text-slate-200 placeholder:text-slate-400 focus:outline-none focus:border-cyan-500 font-mono"
                   />
                 </div>
               </div>
