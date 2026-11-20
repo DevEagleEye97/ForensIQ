@@ -239,6 +239,8 @@ async def execute_forensic_pipeline(
     if cached_res is not None:
         latency_ms = int((time.perf_counter() - t0) * 1000)
         logger.info("[CACHE HIT] Returning cached forensic pipeline result for %s (%dms)", sha256_hex[:12], latency_ms)
+        cached_res.image_response.latency_ms = latency_ms
+        cached_res.legacy_response.latency_ms = latency_ms
         return cached_res
 
     # Fast-path perceptual hash and EXIF memoization
@@ -488,9 +490,7 @@ async def execute_forensic_pipeline(
         case_id=case_id_returned,
     )
 
-    _cache_put(_GLOBAL_FORENSIC_CACHE, sha256_hex, (now, pipeline_result))
-    _cache_put(_FORENSIC_CACHE, sha256_hex, (now, image_response))
-    _cache_put(_ANALYZE_LEGACY_CACHE, sha256_hex, (now, legacy_response))
+    _FORENSIC_CACHE.put(sha256_hex, pipeline_result)
 
     return pipeline_result
 
