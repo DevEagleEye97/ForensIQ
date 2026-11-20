@@ -72,6 +72,10 @@ class ForensiqDocumentConverter:
                 logger.error("[DOC_CONVERTER] Native extraction failed for %s: %s", filename, exc)
                 markdown_text = f"# {filename}\n\n*Binary evidence ingested. Raw SHA-256 fingerprint verified: {sha256_hash}*"
 
+        # Defense-in-depth: Guard against decompression bomb inflation (max 2MB markdown text)
+        if len(markdown_text) > 2_000_000:
+            markdown_text = markdown_text[:2_000_000] + "\n\n*[TRUNCATED: Output exceeded 2MB safe forensic boundary]*"
+
         return {
             "title": title,
             "filename": filename,
