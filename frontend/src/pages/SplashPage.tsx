@@ -57,24 +57,6 @@ export default function SplashPage({ onEnter, onReplayCinematic, onNavigate }: S
               </button>
             )}
 
-            {onNavigate && (
-              <div className="hidden xl:flex items-center gap-2 font-mono text-[11px] text-slate-400">
-                <button
-                  onClick={() => onNavigate('privacy')}
-                  className="hover:text-cyan-300 transition-colors"
-                >
-                  Privacy
-                </button>
-                <span>·</span>
-                <button
-                  onClick={() => onNavigate('terms')}
-                  className="hover:text-cyan-300 transition-colors"
-                >
-                  Terms
-                </button>
-              </div>
-            )}
-
             <div className="hidden md:flex items-center gap-2 font-mono text-[11px] text-slate-400 bg-slate-900/80 px-3 py-1.5 rounded-full border border-slate-800">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               <span>10 ACTIVE ANALYTICAL ENGINES</span>
@@ -396,14 +378,14 @@ export default function SplashPage({ onEnter, onReplayCinematic, onNavigate }: S
                   onClick={() => onNavigate('privacy')}
                   className="text-cyan-400 hover:text-cyan-300 underline underline-offset-4 transition-colors"
                 >
-                  Privacy Policy &amp; Data Protocol
+                  Privacy Policy
                 </button>
                 <span className="text-slate-600">·</span>
                 <button
                   onClick={() => onNavigate('terms')}
                   className="text-teal-400 hover:text-teal-300 underline underline-offset-4 transition-colors"
                 >
-                  Terms &amp; Conditions
+                  Terms
                 </button>
                 <span className="text-slate-600">·</span>
                 <button

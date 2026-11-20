@@ -23,6 +23,7 @@ from fastapi.responses import JSONResponse, FileResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from dotenv import load_dotenv
 import uvicorn
 
@@ -173,6 +174,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
 # Attach limiter to app state and register custom 429 handler
 app.state.limiter = limiter
 app.add_middleware(SlowAPIMiddleware)
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # Cross-Origin Resource Sharing (CORS) Configuration
 app.add_middleware(

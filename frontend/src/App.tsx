@@ -320,14 +320,14 @@ export default function App() {
                     onClick={() => navigateTo('privacy')}
                     className="hover:text-slate-300 transition-colors"
                   >
-                    Privacy Protocol
+                    Privacy Policy
                   </button>
                   <span>·</span>
                   <button
                     onClick={() => navigateTo('terms')}
                     className="hover:text-slate-300 transition-colors"
                   >
-                    Terms of Analysis
+                    Terms
                   </button>
                   <span>·</span>
                   <button
